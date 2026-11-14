@@ -64,7 +64,7 @@
 
 		<Teleport to="body">
 			<div
-				v-if="conditionModalOpen"
+				v-show="conditionModalOpen"
 				class="fxr-modal-overlay"
 				@click.self="closeConditionModal"
 			>
@@ -80,12 +80,17 @@
 						</button>
 					</div>
 					<div class="condition-builder-wrap">
-						<ConditionBuilder
+						<CanonicalConditionBuilder
+							ref="conditionBuilderRef"
 							v-model="conditionModel"
 							:docFields="rowFieldOptions"
 							:readOnly="readOnly"
 							:variableOptions="variableOptions"
+							:currentDocType="parentDocType"
+							:collectionSource="modelValue.source"
+							:store="ruleStore"
 							:isMandatory="false"
+							:showValidation="conditionShowValidation"
 						/>
 					</div>
 					<div class="d-flex justify-content-between mt-3">
@@ -116,7 +121,7 @@ import { useMetaStore, useRuleStore } from "../../../stores";
 import { __ } from "../utils";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
-import ConditionBuilder from "../../../components/condition_builder/ConditionBuilder.vue";
+import CanonicalConditionBuilder from "../../../components/condition_builder/CanonicalConditionBuilder.vue";
 
 const props = defineProps({
 	modelValue: {
@@ -148,7 +153,10 @@ const props = defineProps({
 
 const metaStore = useMetaStore();
 const ruleStore = useRuleStore();
+const parentDocType = computed(() => ruleStore.rule_doc?.document_type || props.doctype || "");
 const conditionModalOpen = ref(false);
+const conditionBuilderRef = ref(null);
+const conditionShowValidation = ref(false);
 
 const operationOptions = [
 	{ value: "sum", label: __("Sum Numeric Values (sum)") },
@@ -164,14 +172,14 @@ const operationOptions = [
 ];
 
 const sourceOptions = computed(() => {
-	const dt = ruleStore.rule_doc?.document_type || props.doctype;
+	const dt = parentDocType.value;
 	const options = [];
 
 	if (dt) {
 		const fields = metaStore.doc_meta[dt];
 		if (fields && Array.isArray(fields)) {
 			fields
-				.filter((f) => f.fieldtype === "Table")
+				.filter((f) => ["Table", "Table MultiSelect"].includes(f.fieldtype))
 				.forEach((f) => {
 					options.push({
 						label: `doc.${f.fieldname} (${f.label || f.fieldname})`,
@@ -200,7 +208,7 @@ const sourceOptions = computed(() => {
 watch(
 	() => [props.modelValue.source, props.doctype, ruleStore.rule_doc?.document_type],
 	async ([newSource]) => {
-		const dt = ruleStore.rule_doc?.document_type || props.doctype;
+		const dt = parentDocType.value;
 		if (dt && !metaStore.doc_meta[dt]) {
 			await metaStore.fetch_metadata(dt);
 		}
@@ -212,7 +220,8 @@ watch(
 
 		const tableField = fields.find(
 			(f) =>
-				f.fieldtype === "Table" && (f.fieldname === cleanTable || f.fieldname === newSource)
+				["Table", "Table MultiSelect"].includes(f.fieldtype) &&
+				(f.fieldname === cleanTable || f.fieldname === newSource)
 		);
 		if (tableField && tableField.options && !metaStore.doc_meta[tableField.options]) {
 			await metaStore.fetch_metadata(tableField.options);
@@ -221,24 +230,32 @@ watch(
 	{ immediate: true }
 );
 
-const childMeta = computed(() => {
-	const source = props.modelValue.source || "";
-	if (!source) return null;
+const rowDocType = computed(() => {
+	const source = String(props.modelValue.source || "").trim();
+	if (!source) return "";
 
-	const cleanTable = source.replace(/^(doc|vars|old_doc)\./, "");
-	const dt = ruleStore.rule_doc?.document_type || props.doctype;
-	if (!dt) return null;
+	const parts = source.split(".").filter(Boolean);
+	const scope = parts.length > 1 ? parts[0] : "doc";
+	const segments = parts.length > 1 ? parts.slice(1) : parts;
+	if (scope !== "doc" || segments.length !== 1) return "";
 
-	const fields = metaStore.doc_meta[dt];
-	if (!fields || !Array.isArray(fields)) return null;
+	const parentDoctype = parentDocType.value;
+	if (!parentDoctype) return "";
+
+	const fields = metaStore.doc_meta[parentDoctype];
+	if (!Array.isArray(fields)) return "";
 
 	const tableField = fields.find(
-		(f) => f.fieldtype === "Table" && (f.fieldname === cleanTable || f.fieldname === source)
+		(field) =>
+			["Table", "Table MultiSelect"].includes(field.fieldtype) &&
+			field.fieldname === segments[0]
 	);
-	if (!tableField || !tableField.options) return null;
+	return tableField?.options || "";
+});
 
-	const childDoctype = tableField.options;
-	return metaStore.doc_meta[childDoctype] || null;
+const childMeta = computed(() => {
+	if (!rowDocType.value) return null;
+	return metaStore.doc_meta[rowDocType.value] || null;
 });
 
 const targetFieldOptions = computed(() => {
@@ -260,6 +277,8 @@ const rowFieldOptions = computed(() => {
 			value: `row.${f.fieldname}`,
 			fieldname: f.fieldname,
 			fieldtype: f.fieldtype,
+			options: f.options || "",
+			doctype: rowDocType.value,
 		}));
 });
 
@@ -267,35 +286,31 @@ const hasCondition = computed(() => {
 	const cond = props.modelValue.condition;
 	if (!cond) return false;
 	if (Array.isArray(cond)) return cond.length > 0;
+	if (cond.type === "group") return Boolean(cond.children?.length);
+	if (cond.type === "comparison" || cond.type === "collection_predicate") return true;
 	if (typeof cond === "object") return Boolean(cond.conditions?.length || cond.left || cond.op);
 	return false;
 });
 
 const conditionModel = computed({
 	get() {
-		const cond = props.modelValue.condition;
-		if (!cond) return { op: "and", conditions: [] };
-		if (typeof cond === "object" && !Array.isArray(cond) && cond.conditions) {
-			return cond;
-		}
-		if (Array.isArray(cond)) {
-			return { op: "and", conditions: cond };
-		}
-		if (typeof cond === "object") {
-			return { op: "and", conditions: [cond] };
-		}
-		return { op: "and", conditions: [] };
+		return props.modelValue.condition || null;
 	},
-	set(val) {
-		props.modelValue.condition = val && val.conditions?.length > 0 ? val : null;
+	set(value) {
+		props.modelValue.condition = value || null;
 	},
 });
 
+watch(
+	conditionModel,
+	() => {
+		conditionShowValidation.value = false;
+	},
+	{ deep: true }
+);
+
 function openConditionModal() {
 	if (props.readOnly) return;
-	if (!hasCondition.value) {
-		enableCondition();
-	}
 	conditionModalOpen.value = true;
 }
 
@@ -303,24 +318,29 @@ function closeConditionModal() {
 	conditionModalOpen.value = false;
 }
 
-function enableCondition() {
-	const defaultRef = rowFieldOptions.value[0]?.value || "row.";
-	props.modelValue.condition = {
-		op: "and",
-		conditions: [
-			{
-				left: { ref: defaultRef },
-				op: "==",
-				right: { value: "" },
-			},
-		],
+function clearCondition() {
+	props.modelValue.condition = null;
+	conditionShowValidation.value = false;
+	conditionModalOpen.value = false;
+}
+
+async function validate() {
+	const builderTree = conditionBuilderRef.value?.getTree?.();
+	const hasDraftNodes = Array.isArray(builderTree?.children) && builderTree.children.length > 0;
+	if (!conditionModel.value && !hasDraftNodes) {
+		return { valid: true, errors: [] };
+	}
+	conditionShowValidation.value = true;
+	if (conditionBuilderRef.value?.validate) {
+		return await conditionBuilderRef.value.validate();
+	}
+	return {
+		valid: false,
+		errors: [__("Collection filter condition editor is unavailable")],
 	};
 }
 
-function clearCondition() {
-	props.modelValue.condition = null;
-	conditionModalOpen.value = false;
-}
+defineExpose({ validate });
 </script>
 
 <style scoped>

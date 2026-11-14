@@ -90,10 +90,10 @@ test("resolver_catalogue_adapter: adaptStrategiesForCatalogue calls defaultState
 	assert.equal(adapted[0].kind, "date_time");
 	assert.equal(adapted[0].family, "date_time");
 	assert.equal(adapted[0].operation, "calculate");
-	assert.equal(adapted[0].defaultConfig.token, "date");
+	assert.equal(adapted[0].defaultConfig.config.token, "date");
 
 	assert.equal(adapted[1].kind, "math_formula");
 	assert.equal(adapted[1].family, "math");
 	assert.equal(adapted[1].operation, "formula");
-	assert.equal(adapted[1].defaultConfig.math_op, "+");
+	assert.equal(adapted[1].defaultConfig.config.math_op, "+");
 });

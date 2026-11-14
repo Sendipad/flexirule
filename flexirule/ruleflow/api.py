@@ -630,7 +630,11 @@ def get_condition_contract():
 
 
 @frappe.whitelist()
-def validate_condition(condition: str | dict, doctype: str | None = None):
+def validate_condition(
+	condition: str | dict,
+	doctype: str | None = None,
+	collection_source: str | None = None,
+):
 	"""Authoritative side-effect-free validation for a canonical condition node.
 
 	Returns:
@@ -648,7 +652,22 @@ def validate_condition(condition: str | dict, doctype: str | None = None):
 
 	try:
 		payload = json.loads(condition) if isinstance(condition, str) else condition
-		validate_condition_node(payload, doctype=doctype or None)
+		scope_doctypes: dict[str, str | None] | None = None
+		if collection_source and doctype:
+			# The row scope is metadata-backed only when the collection source is
+			# a child table on the selected parent DocType. The resolver performs
+			# the same authoritative metadata checks used at runtime.
+			from flexirule.ruleflow.core.value_resolver import CollectionResolver
+
+			row_doctype = CollectionResolver(source=collection_source)._resolve_child_doctype(doctype)
+			if row_doctype:
+				scope_doctypes = {"row": row_doctype}
+
+		validate_condition_node(
+			payload,
+			doctype=doctype or None,
+			scope_doctypes=scope_doctypes,
+		)
 		return {"valid": True, "errors": [], "details": []}
 	except ConditionError as exc:
 		return {

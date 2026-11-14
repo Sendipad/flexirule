@@ -242,6 +242,7 @@
 							:currentDocType="docType"
 							:readOnly="false"
 							:isMandatory="false"
+							:showValidation="showValidation"
 							@update:modelValue="updateDraft"
 						/>
 					</div>
@@ -347,7 +348,10 @@ function getTargetFieldtype(target) {
 function getTargetDoctype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
-	return opt?.options || null;
+	// Dynamic Link.options is the name of its controlling field, not a target DocType.
+	// Assignment target metadata alone cannot resolve that runtime value safely.
+	if (!opt || opt.fieldtype !== "Link") return null;
+	return opt.options || null;
 }
 
 /**

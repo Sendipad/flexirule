@@ -24,24 +24,30 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, nextTick } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import { getFunctionIcon } from "../../core/formula_registry";
 
 const props = defineProps(nodeViewProps);
 const resolverControlRef = ref(null);
+let unregisterResolverValidator = null;
 
 const isOperationOnly = computed(() => {
 	const ctx = props.extension?.options?.context || {};
 	return !!(
-		ctx.isLeftOperand ||
-		ctx.presentationPolicy === "operation_only" ||
-		ctx.tokenPresentation === "operation_only"
+		ctx.presentationPolicy === "operation_only" || ctx.tokenPresentation === "operation_only"
 	);
 });
 
 onMounted(() => {
+	const registerValidator = props.extension?.options?.context?.registerResolverValidator;
+	if (!isOperationOnly.value && typeof registerValidator === "function") {
+		unregisterResolverValidator = registerValidator(async () => {
+			return resolverControlRef.value?.validate?.() || { valid: true, errors: [] };
+		});
+	}
+
 	if (
 		!isOperationOnly.value &&
 		props.node?.attrs?.autoOpen &&
@@ -54,17 +60,28 @@ onMounted(() => {
 	}
 });
 
+onBeforeUnmount(() => {
+	unregisterResolverValidator?.();
+	unregisterResolverValidator = null;
+});
+
 const currentModelValue = computed(() => {
 	const raw = props.node?.attrs?.config;
-	if (raw && typeof raw === "object") {
-		return {
-			...raw,
-			family: props.node?.attrs?.family || raw.family,
-			operation: props.node?.attrs?.operation || raw.operation,
-			value_type: props.node?.attrs?.value_type || raw.value_type,
-		};
-	}
-	return raw;
+	const family = props.node?.attrs?.family || raw?.family || "";
+	const operation = props.node?.attrs?.operation || raw?.operation || "";
+	const config =
+		raw && typeof raw === "object" && raw.config && typeof raw.config === "object"
+			? raw.config
+			: raw && typeof raw === "object"
+			? raw
+			: {};
+
+	return {
+		family,
+		operation,
+		value_type: props.node?.attrs?.value_type || raw?.value_type || "",
+		config,
+	};
 });
 
 const handleUpdate = (config, details) => {

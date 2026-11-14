@@ -261,7 +261,11 @@ def _validate_membership_items(left_type: str | None, right_value: Any, path: st
 	if accepted is None:
 		return
 	for index, item in enumerate(items):
-		if _json_runtime_type(item) not in accepted:
+		if left_type == "Check":
+			compatible = _is_check_membership_item(item)
+		else:
+			compatible = _json_runtime_type(item) in accepted
+		if not compatible:
 			_fail(
 				"operand_type_mismatch",
 				f"{path}.right.value[{index}]",
@@ -399,6 +403,13 @@ def _json_runtime_type(value: Any) -> str:
 	return "unsupported"
 
 
+def _is_check_membership_item(value: Any) -> bool:
+	"""Check list members use Frappe's canonical integer domain: 0 or 1."""
+	if value is None:
+		return True
+	return isinstance(value, int) and not isinstance(value, bool) and value in (0, 1)
+
+
 def _known_fieldtype_check(
 	operator_id: str,
 	left: Any,
@@ -443,7 +454,12 @@ def _known_fieldtype_check(
 		):
 			items = right_value.get("value", [])
 			if expected_types and any(
-				_json_runtime_type(item) not in (*expected_types, "null") for item in items
+				not (
+					_is_check_membership_item(item)
+					if fieldtype == "Check"
+					else _json_runtime_type(item) in (*expected_types, "null")
+				)
+				for item in items
 			):
 				message = (
 					"Link membership lists must contain record-name strings; link tuples are not inferred"

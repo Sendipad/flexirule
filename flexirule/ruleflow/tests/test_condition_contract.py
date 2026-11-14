@@ -11,6 +11,7 @@ from typing import Any
 
 from flexirule.ruleflow.core.condition_contract import (
 	OPERATOR_REGISTRY,
+	_known_fieldtype_check,
 	condition_contract_dto,
 	validate_condition_node,
 )
@@ -73,6 +74,44 @@ class TestCanonicalConditionContract(unittest.TestCase):
 	def test_boolean_is_not_an_integer_literal(self):
 		with self.assertRaises(ConditionValidationError):
 			validate_flex_value({"mode": "static", "value_type": "integer", "value": True})
+
+	def test_check_membership_uses_only_frappe_zero_one_integers(self):
+		for valid_items in ([1, 0], [1], [0], []):
+			node = {
+				"type": "comparison",
+				"operator": "in",
+				"left": {"mode": "static", "value_type": "Check", "value": 1},
+				"right": {"mode": "static", "value_type": "list", "value": valid_items},
+			}
+			with self.subTest(values=valid_items):
+				validate_condition_node(node)
+
+		for invalid_items in ([2], [-1], [True], [False], [1.0], ["1"], ["Yes"]):
+			node = {
+				"type": "comparison",
+				"operator": "in",
+				"left": {"mode": "static", "value_type": "Check", "value": 1},
+				"right": {"mode": "static", "value_type": "list", "value": invalid_items},
+			}
+			with self.subTest(values=invalid_items), self.assertRaises(ConditionValidationError):
+				validate_condition_node(node)
+
+	def test_check_field_metadata_uses_the_same_membership_domain(self):
+		valid = {"mode": "static", "value_type": "list", "value": [1, 0]}
+		_known_fieldtype_check("in", {}, "Check", "$", valid, "list")
+
+		for values in ([2], [True], [1.0], ["1"]):
+			right = {"mode": "static", "value_type": "list", "value": values}
+			with self.subTest(values=values), self.assertRaises(ConditionValidationError):
+				_known_fieldtype_check("in", {}, "Check", "$", right, "list")
+
+	def test_check_static_value_rejects_booleans_and_non_binary_numbers(self):
+		for value in (True, False, -1, 2, 0.0, 1.0, "1"):
+			with self.subTest(value=value), self.assertRaises(ConditionValidationError):
+				validate_flex_value({"mode": "static", "value_type": "Check", "value": value})
+		for value in (0, 1):
+			with self.subTest(value=value):
+				validate_flex_value({"mode": "static", "value_type": "Check", "value": value})
 
 	def test_decimal_literal_must_be_finite_string(self):
 		for value in (1.25, "NaN", "Infinity"):

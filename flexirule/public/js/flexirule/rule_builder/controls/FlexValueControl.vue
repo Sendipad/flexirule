@@ -28,7 +28,7 @@
 					:modelValue="formattedMultiSelectValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
-					:filters="context?.filters || {}"
+					:filters="context?.filters"
 					:get_data="context?.df?.get_data || undefined"
 					:allowCustomValue="true"
 					displayMode="badges"
@@ -117,14 +117,21 @@ import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
-import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
+import {
+	isRemoteRecordFieldType,
+	resolveDynamicLinkDoctype,
+	resolveStaticPresentation,
+} from "./static_presentation_policy.mjs";
+import { parseListElements } from "./flexvalue_serialization.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
 import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
+import { createResolverValidationRegistry } from "./resolver_validation_registry.mjs";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
 	fieldname: String,
+	doctype: { type: String, default: "" },
 	variableOptions: { type: Array, default: () => [] },
 	docFields: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
@@ -176,6 +183,8 @@ const uid =
 	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
 
 const controlRef = ref(null);
+const resolverValidationRegistry = createResolverValidationRegistry();
+const registerResolverValidator = resolverValidationRegistry.register;
 
 const sourceCatalogue = computed(() => {
 	const rawStrategies = getAllStrategies();
@@ -194,17 +203,51 @@ const sourceCatalogue = computed(() => {
 	});
 });
 
+function resolveResolverOutputType(family, operation) {
+	const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
+	if (Array.isArray(resolverSpecs)) {
+		const spec = resolverSpecs.find(
+			(entry) => entry.family === family && entry.operation === operation
+		);
+		if (spec?.output_type) return spec.output_type;
+	}
+	return fieldType.value || "Data";
+}
+
 // Static Mode Helpers
 const staticValue = ref("");
 
 const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
-const fieldOptions = computed(() => props.context?.df?.options || []);
+const fieldOptions = computed(() => {
+	const options = props.context?.df?.options || [];
+	const operator = String(props.context?.operator || "").toLowerCase();
+	if (fieldType.value === "Check" && ["in", "not_in"].includes(operator)) {
+		return [
+			[1, __("Yes")],
+			[0, __("No")],
+		];
+	}
+	return options;
+});
 const referenceDoctype = computed(() => {
-	if (fieldType.value === "Link" && fieldOptions.value) {
-		return fieldOptions.value;
+	const opts = fieldOptions.value;
+
+	if (fieldType.value === "Link") {
+		return typeof opts === "string" ? opts.trim() : "";
 	}
 
-	const opts = fieldOptions.value;
+	if (fieldType.value === "Dynamic Link") {
+		return resolveDynamicLinkDoctype({
+			options: opts,
+			context: {
+				...props.context,
+				doc:
+					props.context?.doc ||
+					(props.doc?.doctype === triggerDoctype.value ? props.doc : null),
+			},
+			engine: props.engine,
+		});
+	}
 
 	if (opts && typeof opts === "string" && props.context?.filters) {
 		const filterVal = props.context.filters[opts];
@@ -218,11 +261,22 @@ const referenceDoctype = computed(() => {
 		}
 	}
 
-	return props.context?.referenceDoctype || opts || "";
+	if (["Select", "Check", "MultiSelect"].includes(fieldType.value)) {
+		return props.context?.referenceDoctype || "";
+	}
+
+	return props.context?.referenceDoctype || (Array.isArray(opts) ? "" : opts || "");
 });
 
 const triggerDoctype = computed(() => {
-	return props.doctype || props.engine?.rule_doc?.document_type || "";
+	return (
+		props.doctype ||
+		props.context?.currentDocType ||
+		props.context?.triggerDoctype ||
+		props.context?.doctype ||
+		props.engine?.rule_doc?.document_type ||
+		""
+	);
 });
 
 const resolverContext = computed(() => {
@@ -235,15 +289,13 @@ const resolverContext = computed(() => {
 		target: props.context?.target || fieldname,
 		referenceDoctype: referenceDoctype.value,
 		triggerDoctype: triggerDoctype.value,
+		registerResolverValidator,
 	};
 });
 
-const isLinkType = computed(() => {
-	const ft = fieldType.value;
-	return (
-		ft === "Link" || ft === "Dynamic Link" || ft === "MultiSelectList" || ft === "MultiSelect"
-	);
-});
+const isLinkType = computed(() =>
+	isRemoteRecordFieldType(fieldType.value, props.context?.referenceDoctype)
+);
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
@@ -406,6 +458,7 @@ const ResolverToken = Node.create({
 			label: { default: "" },
 			family: { default: "" },
 			operation: { default: "" },
+			value_type: { default: "" },
 			config: { default: null },
 			resolver: { default: "" },
 			autoOpen: { default: false },
@@ -544,7 +597,7 @@ const editor = new Editor({
 		}),
 		VariableToken,
 		ResolverToken.configure({
-			doctype: referenceDoctype.value,
+			doctype: triggerDoctype.value,
 			readOnly: isReadOnly.value,
 			context: resolverContext.value,
 		}),
@@ -573,9 +626,13 @@ const editor = new Editor({
 									attrs: {
 										family: props.family,
 										operation: props.operation,
+										value_type: resolveResolverOutputType(
+											props.family,
+											props.operation
+										),
 										config: props.payload?.config || {},
 										label: props.primaryLabel,
-										autoOpen: false,
+										autoOpen: true,
 									},
 								},
 							])
@@ -612,6 +669,7 @@ const editor = new Editor({
 						preferredFieldType: fieldType.value,
 						isLeftOperand: !!props.context?.isLeftOperand,
 						allowedResolverOperandsOnly: !!props.context?.isLeftOperand,
+						conditionContract: props.context?.conditionContract || null,
 					});
 
 					// Add standard clear utility
@@ -645,9 +703,13 @@ const editor = new Editor({
 								attrs: {
 									family: props.family,
 									operation: props.operation,
+									value_type: resolveResolverOutputType(
+										props.family,
+										props.operation
+									),
 									config: props.payload?.config || {},
 									label: props.primaryLabel,
-									autoOpen: false,
+									autoOpen: true,
 								},
 							},
 						])
@@ -719,11 +781,13 @@ const isValid = computed(() => {
 	return true;
 });
 
-function validate() {
+async function validate() {
 	const errors = [];
 	if (!isValid.value) {
 		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
 	}
+	const nestedResult = await resolverValidationRegistry.validate();
+	if (!nestedResult.valid) errors.push(...nestedResult.errors);
 	return { valid: errors.length === 0, errors };
 }
 
@@ -850,39 +914,6 @@ function coerceStructuredValue(val) {
 	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
-function parseListElements(val, targetFieldType) {
-	let rawList = [];
-	if (Array.isArray(val)) {
-		rawList = val;
-	} else if (typeof val === "string") {
-		rawList = val
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean);
-	} else if (val !== null && val !== undefined && val !== "") {
-		rawList = [val];
-	}
-
-	const isInt = targetFieldType === "Int" || targetFieldType === "integer";
-	const isFloat = ["Float", "Currency", "Percent", "decimal"].includes(targetFieldType);
-
-	return rawList.map((item) => {
-		if (typeof item === "string") {
-			const trimmed = item.trim();
-			if (isInt) {
-				const parsed = parseInt(trimmed, 10);
-				return isNaN(parsed) ? trimmed : parsed;
-			}
-			if (isFloat) {
-				const parsed = parseFloat(trimmed);
-				return isNaN(parsed) ? trimmed : parsed;
-			}
-			return trimmed;
-		}
-		return item;
-	});
-}
-
 function serialize() {
 	const currentFieldType = fieldType.value || "Data";
 
@@ -939,7 +970,7 @@ function serialize() {
 				mode: "resolver",
 				family,
 				operation,
-				value_type: currentFieldType,
+				value_type: node.attrs.value_type || currentFieldType,
 				config: innerConfig,
 			};
 		}
@@ -981,7 +1012,7 @@ function serialize() {
 					mode: "resolver",
 					family: fam,
 					operation: op,
-					value_type: currentFieldType,
+					value_type: item.attrs.value_type || currentFieldType,
 					config: innerCfg,
 				},
 			};
@@ -1225,6 +1256,7 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	width: 100%;
 }
+
 .fvc-empty-placeholder {
 	position: absolute;
 	top: 50%;

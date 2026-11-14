@@ -36,7 +36,8 @@ export function normalizeStrategyDefaultState(kind, strategyState = {}) {
 		config = state.config || state;
 	} else if (kind === "collection") {
 		operation = operation || state.operation || "any";
-		config = state;
+		config = { ...state };
+		delete config.operation;
 	} else if (kind === "math_formula") {
 		operation = operation || "formula";
 		config = state;
@@ -76,22 +77,8 @@ export function adaptStrategiesForCatalogue(strategies = [], contextProps = {}) 
 
 		const normalized = normalizeStrategyDefaultState(kind, rawState);
 
-		// Retain the expected { family, operation, config } shape while ensuring direct property access compatibility
-		const innerConfig =
+		const operationConfig =
 			normalized.config && typeof normalized.config === "object" ? normalized.config : {};
-		const payloadConfig =
-			kind === "date_time" || kind === "text"
-				? {
-						...innerConfig,
-						family: normalized.family,
-						operation: normalized.operation,
-						config: innerConfig,
-				  }
-				: {
-						...innerConfig,
-						family: normalized.family,
-						operation: normalized.operation,
-				  };
 
 		return {
 			kind,
@@ -100,7 +87,11 @@ export function adaptStrategiesForCatalogue(strategies = [], contextProps = {}) 
 			description: strategy.description || "",
 			family: normalized.family,
 			operation: normalized.operation,
-			defaultConfig: payloadConfig,
+			defaultConfig: {
+				family: normalized.family,
+				operation: normalized.operation,
+				config: operationConfig,
+			},
 		};
 	});
 }

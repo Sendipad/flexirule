@@ -437,7 +437,9 @@ def validate_flex_value(
 				)
 		elif value_type == "boolean" and not isinstance(val, bool):
 			_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
-		elif value_type == "Check" and val not in (0, 1):
+		elif value_type == "Check" and (
+			not isinstance(val, int) or isinstance(val, bool) or val not in (0, 1)
+		):
 			_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
 		elif value_type == "null" and val is not None:
 			_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")

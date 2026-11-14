@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { searchSourceCatalogue } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/source_catalogue.mjs";
 import { toCanonicalFlexValue } from "../../../../../flexirule/public/js/flexirule/rule_builder/components/condition_builder/canonical_condition_adapter.mjs";
+import { ControlRegistry } from "../../../../../flexirule/public/js/flexirule/core/control_registry.js";
 
 test("lifecycle: field-first and resolver suggestion policy filters out unauthorized operands", () => {
 	const mockContract = {
@@ -86,4 +87,44 @@ test("lifecycle: Link field with target DocType preserves exact string identity 
 	assert.strictEqual(canon.mode, "static");
 	assert.strictEqual(canon.value, "2026-11-08");
 	assert.strictEqual(canon.value_type, "string"); // Preserved as string, never converted to date
+});
+
+test("lifecycle: an explicitly empty backend resolver allow-list hides every condition resolver", () => {
+	const catalogue = [
+		{
+			id: "math_formula",
+			family: "math",
+			operation: "formula",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["math", "formula"],
+		},
+		{
+			id: "date_time",
+			family: "date_time",
+			operation: "calculate",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["date", "calculate"],
+		},
+		{ id: "doc.status", sourceType: "field", category: "fields", searchTerms: ["status"] },
+	];
+
+	const results = searchSourceCatalogue(catalogue, "", {
+		isLeftOperand: true,
+		conditionContract: { flexvalue_modes: { resolver: [] } },
+	});
+
+	assert.deepEqual(
+		results.map((item) => item.id),
+		["doc.status"]
+	);
+});
+
+test("lifecycle: Check DocField resolves through the existing native CheckControl mapping", () => {
+	const resolved = ControlRegistry.resolve(
+		{ fieldtype: "Check", label: "Enabled" },
+		{ doc: { doctype: "Sales Invoice" } }
+	);
+	assert.equal(resolved.component, "CheckControl");
 });
