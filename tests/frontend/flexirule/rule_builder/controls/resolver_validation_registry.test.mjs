@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createResolverValidationRegistry } from "../../../../flexirule/public/js/flexirule/rule_builder/controls/resolver_validation_registry.mjs";
+import { createResolverValidationRegistry } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/resolver_validation_registry.mjs";
 
 test("nested resolver validation is awaited and propagated to the owner", async () => {
 	const registry = createResolverValidationRegistry();

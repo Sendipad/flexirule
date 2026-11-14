@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
 	getCollectionMetadataIssues,
 	getResolvedCollectionDocType,
-} from "../../../../../flexirule/public/js/flexirule/rule_builder/components/condition_builder/collection_metadata_validation.mjs";
+} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/condition_builder/collection_metadata_validation.mjs";
 
 const collection = {
 	id: "items",
