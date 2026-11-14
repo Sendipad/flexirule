@@ -199,7 +199,7 @@ test("static_presentation: remote record fieldtypes are distinct from local Mult
 
 	const localMultiSelect = resolveStaticPresentation({
 		fieldType: "MultiSelect",
-		fieldOptions: "Red\\nGreen\\nBlue",
+		fieldOptions: "Red\nGreen\nBlue",
 		context: { operator: "eq" },
 	});
 	assert.equal(localMultiSelect.control, "multi-select");
