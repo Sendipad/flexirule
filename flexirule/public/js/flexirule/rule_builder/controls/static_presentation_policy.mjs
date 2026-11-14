@@ -1,4 +1,38 @@
 /**
+ * Frappe fieldtypes whose options identify remote records rather than local choices.
+ * MultiSelect is intentionally local; MultiSelectList is the remote DocType-backed control.
+ */
+export function isRemoteRecordFieldType(fieldType) {
+	return ["Link", "Dynamic Link", "MultiSelectList"].includes(String(fieldType || ""));
+}
+
+/**
+ * Resolve the target DocType of a Dynamic Link only from its controlling field's
+ * actual value. Dynamic Link.options is a fieldname, never a DocType name.
+ */
+export function resolveDynamicLinkDoctype({ options, context = {}, engine = {} } = {}) {
+	const targetField = typeof options === "string" ? options.trim() : "";
+	if (!targetField) return "";
+
+	for (const source of [context?.doc, engine?.doc]) {
+		const value = source && typeof source === "object" ? source[targetField] : null;
+		if (typeof value === "string" && value.trim()) return value.trim();
+	}
+
+	const controlContext = context?.controlContext;
+	const contextValue =
+		typeof controlContext?.getFieldValue === "function"
+			? controlContext.getFieldValue(targetField)
+			: null;
+	if (contextValue && typeof contextValue === "object" && contextValue.mode === "static") {
+		return String(contextValue.value || "").trim();
+	}
+	if (typeof contextValue === "string" && contextValue.trim()) return contextValue.trim();
+
+	return typeof context?.dynamicDoctype === "string" ? context.dynamicDoctype.trim() : "";
+}
+
+/**
  * Pure ES module defining the static input presentation resolution policy.
  * Precedence:
  * 1. Explicit staticPresentation prop
