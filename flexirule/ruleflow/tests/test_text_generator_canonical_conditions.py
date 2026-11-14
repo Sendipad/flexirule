@@ -266,7 +266,7 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 			{
 				"type": "loop",
 				"iterator": "item",
-				"iterable": "doc.items",
+				"iterable": "doc.child_rows",
 				"segments": [
 					{
 						"type": "conditional",
@@ -291,7 +291,7 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 				return SimpleNamespace(
 					get_field=lambda fieldname: (
 						SimpleNamespace(fieldtype="Table", options="Test Condition Child")
-						if fieldname == "items"
+						if fieldname == "child_rows"
 						else None
 					)
 				)
@@ -316,7 +316,7 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 			context = {
 				"doc": {
 					"doctype": "Test Condition Parent",
-					"items": [{"enabled": "1"}, {"enabled": "0"}],
+					"child_rows": [{"enabled": "1"}, {"enabled": "0"}],
 				},
 				"vars": {},
 				"_condition_registry": condition_registry,

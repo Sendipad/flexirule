@@ -1189,7 +1189,7 @@ class ValueResolver:
 				"Dynamic Link",
 			} and not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Expected a string")
-			elif value_type in {"integer", "Int"} and not (
+			elif value_type in {"integer", "Int", "Rating", "Duration"} and not (
 				isinstance(val, int) and not isinstance(val, bool)
 			):
 				_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
@@ -1223,7 +1223,9 @@ class ValueResolver:
 					)
 			elif value_type == "boolean" and not isinstance(val, bool):
 				_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
-			elif value_type == "Check" and val not in (0, 1):
+			elif value_type == "Check" and (
+				not isinstance(val, int) or isinstance(val, bool) or val not in (0, 1)
+			):
 				_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
 			elif value_type == "null" and val is not None:
 				_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
@@ -1242,7 +1244,7 @@ class ValueResolver:
 					datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
 				except ValueError:
 					_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
-			elif value_type in {"time", "Time", "Duration"}:
+			elif value_type in {"time", "Time"}:
 				if not isinstance(val, str):
 					_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
 				try:
