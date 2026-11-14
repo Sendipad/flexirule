@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -539,7 +540,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		}
 
 	def test_sub_rule_vars_overlay_isolates_nested_mutable_values(self):
-		parent_vars = {
+		parent_vars: dict[str, Any] = {
 			"settings": {"nested": {"enabled": True}},
 			"rows": [{"values": [1, 2]}],
 			"tags": {"original"},
