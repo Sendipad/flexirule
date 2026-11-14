@@ -481,9 +481,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".fxr-modal-card .canonical-condition-leaf").should("be.visible");
 		// FlexValue hydrates in static mode after reload; explicitly switch to
 		// expression mode before asserting that its Tiptap editor is visible.
-		cy.get(
-			".fxr-modal-card .canonical-condition-leaf .left-operand-control .fvc-toggle-btn"
-		)
+		cy.get(".fxr-modal-card .canonical-condition-leaf .left-operand-control .fvc-toggle-btn")
 			.should("be.visible")
 			.click({ force: true });
 		cy.get(
