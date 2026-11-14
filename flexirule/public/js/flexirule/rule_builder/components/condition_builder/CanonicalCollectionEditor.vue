@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import {
 	generateCollectionAlias,
@@ -162,6 +162,7 @@ async function resolveAndPropagateChildFields() {
 	const currentRequestId = ++activeRequestId;
 	const selected = tableFieldOptions.value.find((f) => f.value === props.node.collection);
 	if (!selected || !selected.options) {
+		delete props.node.childDocType;
 		metaStatus.value = "failed";
 		metaError.value = __("Select a valid child table field to resolve its DocType.");
 		emit("child-fields-loaded", {
@@ -230,6 +231,7 @@ async function resolveAndPropagateChildFields() {
 			return;
 		}
 		const msg = e?.message || __("Failed to fetch child DocType fields.");
+		delete props.node.childDocType;
 		metaStatus.value = "failed";
 		metaError.value = msg;
 		emit("child-fields-loaded", {
@@ -242,6 +244,14 @@ async function resolveAndPropagateChildFields() {
 		});
 	}
 }
+
+watch(
+	() => props.docFields,
+	() => {
+		if (props.node.collection) resolveAndPropagateChildFields();
+	},
+	{ deep: true }
+);
 
 onMounted(() => {
 	if (props.node.collection) {
