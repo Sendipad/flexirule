@@ -1,9 +1,12 @@
 /**
- * Frappe fieldtypes whose options identify remote records rather than local choices.
- * MultiSelect is intentionally local; MultiSelectList is the remote DocType-backed control.
+ * Identify controls that must query remote DocType records.
+ * MultiSelect is local by default; a supplied referenceDoctype is the explicit
+ * signal for builder consumers that use it as a remote-record picker.
  */
-export function isRemoteRecordFieldType(fieldType) {
-	return ["Link", "Dynamic Link", "MultiSelectList"].includes(String(fieldType || ""));
+export function isRemoteRecordFieldType(fieldType, referenceDoctype = "") {
+	const type = String(fieldType || "");
+	if (["Link", "Dynamic Link", "MultiSelectList"].includes(type)) return true;
+	return type === "MultiSelect" && typeof referenceDoctype === "string" && !!referenceDoctype.trim();
 }
 
 /**
