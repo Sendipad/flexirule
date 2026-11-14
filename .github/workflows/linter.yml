@@ -44,6 +44,12 @@ jobs:
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.1
 
+      - name: Print formatter changes for diagnosis
+        if: ${{ always() }}
+        run: |
+          git diff --stat
+          git diff -- '*.py'
+
       - name: Download Semgrep rules
         if: ${{ github.event_name == 'pull_request' }}
         run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
