@@ -1148,7 +1148,7 @@ class ValueResolver:
 		if supported_consumers is None:
 			normalized_consumers = {"all"}
 		elif (
-			not isinstance(supported_consumers, (set, frozenset))
+			not isinstance(supported_consumers, set | frozenset)
 			or not supported_consumers
 			or any(not isinstance(item, str) or not item.strip() for item in supported_consumers)
 		):
