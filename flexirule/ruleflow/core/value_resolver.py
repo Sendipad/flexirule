@@ -1063,7 +1063,7 @@ class ValueResolver:
 		output_type: str,
 		config_schema: dict[str, Any],
 		permission_policy: str,
-		validate_config: Callable[[dict, str, set[str], int, int, str | None], None],
+		validate_config: Callable[[dict, str, set[str], int, int, str], None],
 		factory: Callable[[dict, Any], CompiledResolver],
 		supported_consumers: set[str] | None = None,
 		condition_operand_allowed: bool = False,
@@ -1149,7 +1149,7 @@ class ValueResolver:
 		*,
 		path: str = "$",
 		allowed_scopes: set[str] | None = None,
-		consumer: str | None = None,
+		consumer: str = "all",
 		resolver_depth: int = 0,
 		flexvalue_depth: int = 0,
 	) -> str | None:
@@ -1355,7 +1355,7 @@ class ValueResolver:
 		*,
 		context_metadata: dict[str, Any] | None = None,
 		path: str = "$",
-		consumer: str | None = None,
+		consumer: str = "all",
 	) -> CompiledResolver:
 		"""
 		Authoritative compilation pipeline for canonical FlexValue.
@@ -1770,14 +1770,14 @@ class CanonicalTemplateResolver(CompiledResolver):
 def get_compiled_resolver(action, key: str, value_payload: Any, *, consumer: str) -> CompiledResolver:
 	"""
 	Retrieve or create a request-local compiled ValueResolver object for extreme execution efficiency.
-	Accounts for action, key, and registry fingerprint.
+	Accounts for action, key, consumer, and the shared registry fingerprint.
 	"""
 	if not hasattr(frappe.local, "flexirule_compiled_resolvers"):
 		frappe.local.flexirule_compiled_resolvers = {}
 
 	action_name = getattr(action, "name", "action") or "action"
 	fp = ValueResolver.registry_fingerprint()
-	cache_key = f"{action_name}_{key}_{consumer}_{fp}"
+	cache_key = (action_name, key, consumer, fp)
 
 	if cache_key not in frappe.local.flexirule_compiled_resolvers:
 		if isinstance(value_payload, dict) and "mode" in value_payload:

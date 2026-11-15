@@ -395,6 +395,11 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		assignment_resolver = get_compiled_resolver(action, "shared_operand", lookup, consumer="assignment")
 		self.assertIsNot(query_resolver, assignment_resolver)
 
+		# A generic caller without an explicit consumer is fail-closed as well.
+		with self.assertRaises(ConditionValidationError) as raised:
+			ValueResolver.compile_flex_value(lookup)
+		self.assertEqual(raised.exception.code, "resolver_consumer_unsupported")
+
 		# A cached Query Records resolver must not be returned to a condition
 		# consumer, which explicitly disallows lookup.fetch.
 		with self.assertRaises(ConditionValidationError) as raised:
