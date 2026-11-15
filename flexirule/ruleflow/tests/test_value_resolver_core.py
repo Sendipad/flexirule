@@ -94,6 +94,22 @@ class TestValueResolverCore(unittest.TestCase):
 		res3 = get_compiled_resolver(action, "field2", payload, consumer="assignment")
 		self.assertIsNot(res1, res3)
 
+	def test_get_compiled_resolver_cache_tracks_payload_changes(self):
+		action = frappe._dict({"name": "test_payload_fingerprint"})
+		first_payload = {"mode": "static", "value": 10}
+		second_payload = {"mode": "static", "value": 20}
+
+		first = get_compiled_resolver(
+			action, "same_operand", first_payload, consumer="assignment"
+		)
+		second = get_compiled_resolver(
+			action, "same_operand", second_payload, consumer="assignment"
+		)
+
+		self.assertIsNot(first, second)
+		self.assertEqual(first.resolve({}), 10)
+		self.assertEqual(second.resolve({}), 20)
+
 	def test_none_resolver(self):
 		self.assertIsNone(NoneResolver().resolve({}))
 

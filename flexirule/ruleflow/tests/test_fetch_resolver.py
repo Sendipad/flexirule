@@ -87,7 +87,9 @@ class TestFetchResolver(unittest.TestCase):
 		result = resolver.resolve(self.context)
 
 		# Should still resolve correctly by prepending doc.
-		mock_get_value.assert_called_once_with("Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1
+		)
 		self.assertEqual(result, "PM-0005")
 
 	def test_fetch_resolver_missing_config(self):

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import hashlib
 import json
 import math
 import re
@@ -962,7 +963,9 @@ class LookupResolver(CompiledResolver):
 
 		# Resolve record name / ID before querying. A missing link is a normal empty result.
 		link_value = self._resolve_scoped_value(context, self.record_field)
-		if not link_value:
+		if not isinstance(link_value, str | int) or isinstance(link_value, bool):
+			return None
+		if isinstance(link_value, str) and not link_value.strip():
 			return None
 
 		# Frappe's db.get_value() does not apply record-level User Permissions,
@@ -1808,17 +1811,11 @@ class CanonicalTemplateResolver(CompiledResolver):
 
 def get_compiled_resolver(action, key: str, value_payload: Any, *, consumer: str) -> CompiledResolver:
 	"""
-	Retrieve or create a request-local compiled ValueResolver object for extreme execution efficiency.
-	Accounts for action, key, consumer, and the shared registry fingerprint.
+	Retrieve or create a request-local compiled ValueResolver object.
+	The cache is scoped by action, operand, consumer, registry, and payload.
 	"""
-	if not hasattr(frappe.local, "flexirule_compiled_resolvers"):
-		frappe.local.flexirule_compiled_resolvers = {}
 
-	action_name = getattr(action, "name", "action") or "action"
-	fp = ValueResolver.registry_fingerprint()
-	cache_key = (action_name, key, consumer, fp)
-
-	if cache_key not in frappe.local.flexirule_compiled_resolvers:
+	def compile_payload() -> CompiledResolver:
 		if isinstance(value_payload, dict) and "mode" in value_payload:
 			mode = value_payload.get("mode")
 			is_canonical = (
@@ -1828,15 +1825,40 @@ def get_compiled_resolver(action, key: str, value_payload: Any, *, consumer: str
 				or (mode == "template" and "segments" in value_payload)
 			)
 			if is_canonical:
-				# Strict canonical compilation without fallback
-				frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile_flex_value(
-					value_payload, consumer=consumer
-				)
-			else:
-				# Explicit legacy payload conversion
-				frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
-		else:
-			frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
+				# Strict canonical compilation without fallback.
+				return ValueResolver.compile_flex_value(value_payload, consumer=consumer)
+
+			# Explicit legacy payload conversion.
+			return ValueResolver.compile(value_payload)
+
+		return ValueResolver.compile(value_payload)
+
+	if not consumer or not isinstance(consumer, str):
+		raise ValueError("A non-empty FlexValue consumer is required")
+
+	try:
+		payload_json = json.dumps(
+			value_payload,
+			sort_keys=True,
+			ensure_ascii=False,
+			separators=(",", ":"),
+			allow_nan=False,
+		)
+	except (TypeError, ValueError, RecursionError):
+		# Non-JSON legacy values are compiled without caching; never reuse a resolver
+		# based only on action/key when the payload cannot be fingerprinted safely.
+		return compile_payload()
+
+	if not hasattr(frappe.local, "flexirule_compiled_resolvers"):
+		frappe.local.flexirule_compiled_resolvers = {}
+
+	action_name = getattr(action, "name", "action") or "action"
+	registry_fingerprint = ValueResolver.registry_fingerprint()
+	payload_fingerprint = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+	cache_key = (action_name, key, consumer, registry_fingerprint, payload_fingerprint)
+
+	if cache_key not in frappe.local.flexirule_compiled_resolvers:
+		frappe.local.flexirule_compiled_resolvers[cache_key] = compile_payload()
 
 	return frappe.local.flexirule_compiled_resolvers[cache_key]
 
