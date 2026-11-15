@@ -23,6 +23,8 @@
  *     in-memory state is updated and the cache replaced.
  */
 
+import { getConditionPayload } from "../rule_builder/utils/condition_payload.js";
+
 // ── Module-level state — populated exclusively from backend DTO ──────────────
 
 export let ACTION_TYPE_CONTRACT = {};
@@ -1102,8 +1104,7 @@ export function validateAgainstContract(nodeData) {
 	if (actionType === "Condition" || actionType === "Loop") {
 		const config = parseJsonSafe(nodeData.config, {});
 		if (actionType === "Condition") {
-			const { getConditionPayload } = window.flexirule?.utils?.condition_payload || {};
-			const payload = getConditionPayload ? getConditionPayload(nodeData) : config.conditions;
+			const payload = getConditionPayload({ ...nodeData, action_type: actionType });
 
 			if (!payload || (Array.isArray(payload) && payload.length === 0)) {
 				errors.push(__("At least one condition is required"));

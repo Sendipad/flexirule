@@ -283,9 +283,40 @@ class ActionHandler(ABC):
 			if not compiled_expr_or_payload:
 				return False
 
-			from flexirule.ruleflow.core.compiler import ConditionCompiler
+			is_canonical = False
+			canonical_node = None
+			if isinstance(compiled_expr_or_payload, dict | list | str):
+				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+				is_canonical, canonical_node = detect_canonical_condition_payload(compiled_expr_or_payload)
+			if is_canonical:
+				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+				condition_context = dict(context or {})
+				condition_context.setdefault("doc", condition_context.get("doc"))
+				condition_context.setdefault("vars", condition_context.get("vars", {}))
+				if engine:
+					rule_doc = engine.rule
+					condition_context["rule"] = {
+						"name": getattr(rule_doc, "name", None),
+						"trigger_type": getattr(rule_doc, "trigger_type", None),
+						"trigger_event": getattr(rule_doc, "trigger_event", None),
+						"document_type": getattr(rule_doc, "document_type", None),
+					}
+					condition_context.setdefault(
+						"doctype",
+						getattr(rule_doc, "document_type", None)
+						or getattr(condition_context.get("doc"), "doctype", None),
+					)
+				return evaluate_condition(
+					canonical_node,
+					condition_context,
+					doctype=condition_context.get("doctype"),
+				)
 
 			if isinstance(compiled_expr_or_payload, dict | list):
+				from flexirule.ruleflow.core.compiler import ConditionCompiler
+
 				compiled_expr = ConditionCompiler().compile(compiled_expr_or_payload)
 			else:
 				compiled_expr = str(compiled_expr_or_payload)
@@ -293,6 +324,68 @@ class ActionHandler(ABC):
 			if engine and hasattr(engine, "_evaluate_python_condition"):
 				return bool(engine._evaluate_python_condition(compiled_expr, context))
 			return False
+
+		# Render-scoped condition evaluator for canonical template segments
+		condition_registry = context.get("_condition_registry") or {}
+		prepared_cache = {}
+
+		def _eval_condition(cond_id, **kwargs):
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+			from flexirule.ruleflow.core.condition_evaluator import (
+				evaluate_prepared_condition,
+				prepare_condition,
+			)
+
+			if cond_id not in condition_registry:
+				raise ConditionValidationError(
+					"missing_template_condition",
+					"$",
+					f"Template condition '{cond_id}' is missing from the render condition registry",
+				)
+
+			rule_doc = getattr(engine, "rule", None)
+			eval_context = dict(context or {})
+			eval_context.setdefault("doc", eval_context.get("doc"))
+			eval_context.setdefault("vars", eval_context.get("vars", {}))
+			if kwargs:
+				eval_context.update(kwargs)
+
+			doc_obj = eval_context.get("doc")
+			doc_type = (
+				getattr(doc_obj, "doctype", None)
+				or (doc_obj.get("doctype") if isinstance(doc_obj, dict) else None)
+				or getattr(rule_doc, "document_type", None)
+				or eval_context.get("doctype")
+			)
+
+			if cond_id not in prepared_cache:
+				registry_entry = condition_registry[cond_id]
+				if (
+					isinstance(registry_entry, dict)
+					and "condition" in registry_entry
+					and "scope_doctypes" in registry_entry
+				):
+					node = registry_entry["condition"]
+					scope_doctypes = registry_entry.get("scope_doctypes") or None
+				else:
+					# Preserve compatibility with registries serialized before scope metadata
+					# was attached to canonical template conditions.
+					node = registry_entry
+					scope_doctypes = None
+				prepared_cache[cond_id] = prepare_condition(
+					node, doctype=doc_type, scope_doctypes=scope_doctypes
+				)
+
+			prepared = prepared_cache[cond_id]
+			if rule_doc:
+				eval_context["rule"] = {
+					"name": getattr(rule_doc, "name", None),
+					"trigger_type": getattr(rule_doc, "trigger_type", None),
+					"trigger_event": getattr(rule_doc, "trigger_event", None),
+					"document_type": getattr(rule_doc, "document_type", None),
+				}
+
+			return evaluate_prepared_condition(prepared, eval_context, doctype=doc_type)
 
 		ctx = {
 			"doc": context.get("doc"),
@@ -314,6 +407,7 @@ class ActionHandler(ABC):
 			"resolve": resolve_helper,
 			"normalize": normalize_helper,
 			"condition": condition_helper,
+			"_eval_condition": _eval_condition,
 		}
 		if engine:
 			ctx["rule"] = engine.rule

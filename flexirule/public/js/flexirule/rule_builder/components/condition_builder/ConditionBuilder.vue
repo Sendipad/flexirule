@@ -1,3 +1,9 @@
+<!--
+  DEPRECATED: Legacy ConditionBuilder.
+  Canonical replacement: CanonicalConditionBuilder.vue.
+  New code must not import or depend on this component.
+  Physical removal is deferred to a future dedicated cleanup change.
+-->
 <template>
 	<div class="condition-builder fxr-accent-scope">
 		<!-- Main Header -->

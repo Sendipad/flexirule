@@ -1,6 +1,8 @@
 /**
- * Validates a condition tree recursively.
- * Returns an object with { valid: boolean, message?: string }
+ * DEPRECATED: Legacy condition tree validator.
+ * Canonical replacement: canonical_condition_validation.mjs / validate_condition API.
+ * New code must not import or depend on this file.
+ * Physical removal is deferred to a future dedicated cleanup change.
  */
 export function validateConditions(node, isRoot = false, isMandatory = true) {
 	const errors = [];

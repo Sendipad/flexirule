@@ -10,6 +10,12 @@ import CollectionResolver from "./components/CollectionResolver.vue";
 import { registerStrategy, getStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
 import { useMetaStore, useRuleStore } from "../../stores";
+import { validateCanonicalCondition } from "../../components/condition_builder/canonical_condition_validation.mjs";
+import {
+	deserializeConditionTree,
+	isCanonicalConditionPayload,
+	serializeConditionTree,
+} from "../../components/condition_builder/canonical_condition_adapter.mjs";
 
 // ─── Date & Time Strategy (Unified Date & Time Family) ───
 registerStrategy("date_time", {
@@ -276,6 +282,64 @@ registerStrategy("collection", {
 			errors.push(__("Target field is required for this operation"));
 		}
 		return { isValid: errors.length === 0, errors };
+	},
+	validateDeep: async (item, props) => {
+		if (!item.condition) return { isValid: true, errors: [] };
+
+		// Existing CollectionResolver values may still use the supported legacy
+		// condition shape. Validate its deterministic canonical projection without
+		// mutating the saved payload; unsupported legacy nodes remain fail-closed.
+		const canonicalCondition = isCanonicalConditionPayload(item.condition)
+			? item.condition
+			: serializeConditionTree(deserializeConditionTree(item.condition));
+		if (!canonicalCondition) {
+			return {
+				isValid: false,
+				errors: [__("Collection filter condition is empty or cannot be migrated.")],
+			};
+		}
+
+		const localResult = validateCanonicalCondition(canonicalCondition, { isMandatory: true });
+		if (!localResult.valid) {
+			return { isValid: false, errors: localResult.errors || [] };
+		}
+
+		if (typeof frappe === "undefined" || !frappe.call) {
+			if (typeof window !== "undefined" && window.__FLEXIRULE_TEST_MODE__) {
+				return { isValid: true, errors: [] };
+			}
+			return {
+				isValid: false,
+				errors: [__("Backend condition validator is unavailable. Save blocked.")],
+			};
+		}
+
+		try {
+			const response = await frappe.call({
+				method: "flexirule.ruleflow.api.validate_condition",
+				args: {
+					condition: JSON.stringify(canonicalCondition),
+					doctype: props.doctype || undefined,
+					collection_source: item.source || undefined,
+				},
+			});
+			const result = response.message || response;
+			return {
+				isValid: result?.valid === true,
+				errors:
+					result?.valid === true
+						? []
+						: Array.isArray(result?.errors) && result.errors.length
+						? result.errors
+						: [__("Collection filter condition failed backend validation.")],
+			};
+		} catch (error) {
+			console.error("Collection filter condition validation failed:", error);
+			return {
+				isValid: false,
+				errors: [__("Collection filter condition could not be validated by the server.")],
+			};
+		}
 	},
 });
 

@@ -237,6 +237,8 @@ function drop(e) {
 			<TreeBuilderGroup
 				v-if="kind === 'group'"
 				:node="node"
+				:parent="parent"
+				:index="index"
 				:operators="groupOperators"
 				:operatorLabel="operatorLabel"
 				:readOnly="readOnly"
@@ -283,6 +285,8 @@ function drop(e) {
 			<TreeBuilderCollection
 				v-else-if="isCollectionNode(node)"
 				:node="node"
+				:parent="parent"
+				:index="index"
 				:label="collectionLabel"
 				:readOnly="readOnly"
 				:allowGroups="allowGroups"

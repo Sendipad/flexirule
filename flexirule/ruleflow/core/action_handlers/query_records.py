@@ -1443,7 +1443,10 @@ class QueryRecordsHandler(ActionHandler):
 				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
 
 				resolver = get_compiled_resolver(
-					action, ref_label.replace(".", "_").replace("[", "_").replace("]", "_"), value
+					action,
+					ref_label.replace(".", "_").replace("[", "_").replace("]", "_"),
+					value,
+					consumer="query_records",
 				)
 				return resolver.resolve(context)
 			return {

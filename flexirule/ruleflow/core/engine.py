@@ -273,6 +273,9 @@ class RuleEngine:
 
 		self.execution_log = []
 		self.cache = {}
+		# Prepared canonical artifacts are bound to this RuleEngine execution only.
+		# They are never serialized or shared through the process/Redis action-plan caches.
+		self._prepared_condition_cache = {}
 		self.execution_id = self.context.get("execution_id")
 		self.last_execution_payload = None
 		self.last_log_enqueued = False
@@ -281,6 +284,74 @@ class RuleEngine:
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
 		self.action_map_by_label = {a.action_label: a for a in self.actions}
 		self.action_map_by_name = {a.name: a for a in self.actions}
+
+	@staticmethod
+	def _condition_source_is_cacheable(value):
+		"""Only cache immutable DocField values; mutable in-memory payloads must be re-read."""
+		return value is None or isinstance(value, str | bytes | int | float | bool)
+
+	@staticmethod
+	def _condition_source_signature(value):
+		"""Return an immutable source value without serializing the condition on cache hits."""
+		if RuleEngine._condition_source_is_cacheable(value):
+			return value
+		return ("object_identity", id(value))
+
+	def _get_condition_payload_and_prepared(self, action):
+		"""Return cached condition classification and a trusted artifact for this execution.
+
+		The cache is engine-instance scoped, so a new RuleEngine revalidates conditions against
+		current DocType metadata. Raw config signatures invalidate the entry if the action changes.
+		"""
+		from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION
+		from flexirule.ruleflow.core.condition_evaluator import EVALUATOR_CACHE_VERSION, prepare_condition
+		from flexirule.ruleflow.core.condition_payload import (
+			detect_canonical_condition_payload,
+			get_condition_payload,
+		)
+		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
+
+		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
+		config_value = getattr(action, "config", None)
+		legacy_value = getattr(action, "condition_json", None)
+		doctype = getattr(self.rule, "document_type", None)
+		if not (
+			self._condition_source_is_cacheable(config_value)
+			and self._condition_source_is_cacheable(legacy_value)
+		):
+			# Non-DocField mutable payloads are supported defensively, but not memoized:
+			# an in-place mutation cannot be detected without re-serializing the full tree.
+			payload = get_condition_payload(action)
+			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+			prepared = prepare_condition(canonical_node, doctype=doctype) if is_canonical else None
+			return payload, is_canonical, canonical_node, prepared
+
+		config_signature = self._condition_source_signature(config_value)
+		legacy_signature = self._condition_source_signature(legacy_value)
+		registry_signature = resolver_registry_fingerprint()
+		cache_key = (
+			config_signature,
+			legacy_signature,
+			doctype,
+			registry_signature,
+			CONDITION_SEMANTICS_VERSION,
+			EVALUATOR_CACHE_VERSION,
+		)
+		cached = self._prepared_condition_cache.get(action_key)
+		if cached and cached[0] == cache_key:
+			return cached[1], cached[2], cached[3], cached[4]
+
+		payload = get_condition_payload(action)
+		is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+		prepared = prepare_condition(canonical_node, doctype=doctype) if is_canonical else None
+		self._prepared_condition_cache[action_key] = (
+			cache_key,
+			payload,
+			is_canonical,
+			canonical_node,
+			prepared,
+		)
+		return payload, is_canonical, canonical_node, prepared
 
 	@staticmethod
 	def _get_action_config(action):
@@ -292,6 +363,30 @@ class RuleEngine:
 			return json.loads(config_str)
 		except (json.JSONDecodeError, TypeError):
 			return {}
+
+	def _get_prepared_condition_for_payload(self, cache_key, canonical_node, doctype=None):
+		"""Reuse an artifact for an immutable canonical node within this rule execution."""
+		from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION
+		from flexirule.ruleflow.core.condition_evaluator import EVALUATOR_CACHE_VERSION, prepare_condition
+		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
+
+		registry_signature = resolver_registry_fingerprint()
+		generation = (
+			registry_signature,
+			CONDITION_SEMANTICS_VERSION,
+			EVALUATOR_CACHE_VERSION,
+		)
+		cached = self._prepared_condition_cache.get(cache_key)
+		if cached and cached[0] is canonical_node and cached[1] == doctype and cached[2] == generation:
+			return cached[3]
+		prepared = prepare_condition(canonical_node, doctype=doctype)
+		self._prepared_condition_cache[cache_key] = (
+			canonical_node,
+			doctype,
+			generation,
+			prepared,
+		)
+		return prepared
 
 	def execute(self, doc, event_name=None, **kwargs):
 		"""
@@ -305,6 +400,9 @@ class RuleEngine:
 		Returns:
 		        Execution context with results
 		"""
+		# Each execute call is a new validation lifecycle. Reuse is only within this
+		# invocation so current DocType metadata is revalidated for the next execution.
+		self._prepared_condition_cache.clear()
 		# Tracking vars
 		start_time = time.time()
 		status = "Success"

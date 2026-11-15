@@ -265,9 +265,14 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertEqual(result, expected)
 
 	def test_compile_empty_conditions(self):
-		"""Test compiling empty conditions"""
-		result = self.compiler.compile([])
-		self.assertEqual(result, "")
+		"""Test compiling empty list condition raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile([])
+
+	def test_compile_empty_dict_condition(self):
+		"""Test compiling empty dict condition raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile({})
 
 	def test_compile_none_conditions(self):
 		"""Test compiling None conditions"""
@@ -276,8 +281,10 @@ class TestConditionCompiler(FrappeTestCase):
 
 	def test_compile_malformed_json_raises_value_error(self):
 		"""Test compiling malformed JSON condition tree raises ValueError."""
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 		malformed_json = '{"op": "and", "conditions": ['
-		with self.assertRaises(ValueError):
+		with self.assertRaises((ValueError, ConditionValidationError)):
 			self.compiler.compile(malformed_json)
 
 	def test_compile_valid_raw_expression_string(self):
@@ -303,5 +310,7 @@ class TestConditionCompiler(FrappeTestCase):
 
 	def test_compile_unsupported_type_raises_value_error(self):
 		"""Test compiling non-dict/non-list/non-string object raises ValueError."""
-		with self.assertRaises(ValueError):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		with self.assertRaises((ValueError, ConditionValidationError)):
 			self.compiler.compile(123)

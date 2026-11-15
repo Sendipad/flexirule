@@ -2,8 +2,11 @@
 # For license information, please see license.txt
 
 """
-ConditionEvaluator - Evaluates JSON-based rule conditions
-Supports nested AND/OR logic, field comparisons, and various operators
+DEPRECATED: ConditionEvaluator - Evaluates legacy JSON-based rule conditions.
+
+Canonical conditions must be evaluated via `flexirule.ruleflow.core.condition_evaluator`.
+New code must not import, call, or depend on ConditionEvaluator.
+Physical removal is deferred to a future dedicated cleanup change.
 """
 
 import json

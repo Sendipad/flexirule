@@ -418,6 +418,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				const conditionPayload =
 					action_type === "Condition"
 						? getConditionPayload({
+								action_type,
 								config: node.data?.config,
 								condition_json: node.data?.condition_json,
 						  })

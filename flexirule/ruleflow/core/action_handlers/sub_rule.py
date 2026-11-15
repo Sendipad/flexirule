@@ -24,14 +24,30 @@ from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_m
 MAX_SUB_RULE_DEPTH = 2
 
 
+def _clone_context_containers(value):
+	"""Recursively clone mutable built-in containers without copying Frappe objects."""
+	if isinstance(value, dict):
+		cloned = value.copy()
+		for key, item in value.items():
+			cloned[key] = _clone_context_containers(item)
+		return cloned
+	if isinstance(value, list):
+		return [_clone_context_containers(item) for item in value]
+	if isinstance(value, tuple):
+		return tuple(_clone_context_containers(item) for item in value)
+	if isinstance(value, set):
+		return {_clone_context_containers(item) for item in value}
+	return value
+
+
 class SubRuleVarsOverlay(dict):
 	"""
 	Copy-on-write overlay for sub-rule context vars.
 
 	- Reads fall back to parent vars.
 	- Writes stay local to sub-rule execution.
-	- Mutable parent values are shallow-copied on first access to avoid
-	  mutating parent context state.
+	- Mutable parent containers are recursively copied on first access to avoid
+	  nested mutations leaking into parent context state.
 	"""
 
 	def __init__(self, parent_vars=None):
@@ -67,18 +83,10 @@ class SubRuleVarsOverlay(dict):
 
 	def _promote_parent_value(self, key):
 		value = self._parent.get(key)
-		if isinstance(value, dict):
-			local_dict = value.copy()
-			dict.__setitem__(self, key, local_dict)
-			return local_dict
-		if isinstance(value, list):
-			local_list = list(value)
-			dict.__setitem__(self, key, local_list)
-			return local_list
-		if isinstance(value, set):
-			local_set = set(value)
-			dict.__setitem__(self, key, local_set)
-			return local_set
+		if isinstance(value, dict | list | tuple | set):
+			local_value = _clone_context_containers(value)
+			dict.__setitem__(self, key, local_value)
+			return local_value
 		return value
 
 
@@ -237,21 +245,36 @@ class SubRuleHandler(ActionHandler):
 				),
 			)
 
+			# Carry caller rule/document metadata into the child context even when the
+			# target condition is absent or explicitly skipped.
+			caller_doc = context.get("doc")
+			caller_doc_doctype = (
+				caller_doc.get("doctype")
+				if isinstance(caller_doc, dict)
+				else getattr(caller_doc, "doctype", None)
+			)
+			caller_rule_meta = {
+				"name": engine.rule.name,
+				"trigger_type": engine.rule.trigger_type,
+				"trigger_event": context.get("event_name") or engine.rule.trigger_event,
+				"document_type": engine.rule.document_type,
+				"doctype": caller_doc_doctype,
+			}
+
 			# Evaluate trigger condition if not skipped
 			if not skip_conditions and sub_rule_doc.trigger_condition:
-				if not sub_rule_doc.compiled_expression:
+				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+				is_canonical_condition, canonical_condition = detect_canonical_condition_payload(
+					sub_rule_doc.trigger_condition
+				)
+				if not is_canonical_condition and not sub_rule_doc.compiled_expression:
 					from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 					sub_rule_doc.compiled_expression = ConditionCompiler().compile(
 						sub_rule_doc.trigger_condition
 					)
 
-				caller_rule_meta = {
-					"name": engine.rule.name,
-					"trigger_type": engine.rule.trigger_type,
-					"trigger_event": context.get("event_name") or engine.rule.trigger_event,
-					"document_type": engine.rule.document_type,
-				}
 				target_rule_meta = {
 					"name": sub_rule_doc.name,
 					"trigger_type": sub_rule_doc.trigger_type,
@@ -259,14 +282,13 @@ class SubRuleHandler(ActionHandler):
 					"document_type": sub_rule_doc.document_type,
 				}
 				eligibility_vars = dict(context.get("vars", {}) or {})
-				caller_doc = context.get("doc")
 				eligibility_vars.update(
 					{
 						"_caller_rule": engine.rule.name,
 						"_caller_trigger_type": engine.rule.trigger_type,
 						"_caller_trigger_event": context.get("event_name") or engine.rule.trigger_event,
 						"_caller_document_type": engine.rule.document_type,
-						"_caller_doc_type": getattr(caller_doc, "doctype", None),
+						"_caller_doc_type": caller_doc_doctype,
 					}
 				)
 
@@ -275,13 +297,20 @@ class SubRuleHandler(ActionHandler):
 				eligibility_context["caller"] = caller_rule_meta
 				eligibility_context["rule"] = target_rule_meta
 				eligibility_context["doctype"] = (
-					engine.rule.document_type
-					or getattr(caller_doc, "doctype", None)
-					or sub_rule_doc.document_type
+					engine.rule.document_type or caller_doc_doctype or sub_rule_doc.document_type
 				)
-				is_eligible = engine._evaluate_python_condition(
-					sub_rule_doc.compiled_expression, eligibility_context
-				)
+				if is_canonical_condition:
+					from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+					is_eligible = evaluate_condition(
+						canonical_condition,
+						eligibility_context,
+						doctype=eligibility_context.get("doctype"),
+					)
+				else:
+					is_eligible = engine._evaluate_python_condition(
+						sub_rule_doc.compiled_expression, eligibility_context
+					)
 				if not is_eligible:
 					engine._log(
 						"INFO",
@@ -313,11 +342,15 @@ class SubRuleHandler(ActionHandler):
 					)
 				)
 
-			sub_context = context.copy()
+			sub_context = _clone_context_containers(context)
 			sub_context["_sub_rule_depth"] = current_depth + 1
+			sub_context["caller"] = caller_rule_meta
 			sub_context["vars"] = SubRuleVarsOverlay(context.get("vars", {}))
-			sub_context["meta"] = context.get("meta", {}).copy()
+			sub_context["meta"] = _clone_context_containers(context.get("meta", {}))
 			sub_context["meta"]["parent_rule"] = engine.rule.name
+			caller_chain = list(sub_context["meta"].get("caller_chain") or [])
+			caller_chain.append(dict(caller_rule_meta))
+			sub_context["meta"]["caller_chain"] = caller_chain
 			caller_base_name = getattr(engine.rule, "base_rule_name", None) or re.sub(
 				r"_[vV]\d+$", "", engine.rule.name
 			)

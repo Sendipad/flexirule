@@ -141,6 +141,9 @@ class TestRealRules(FrappeTestCase):
 							"operator": "set",
 							"value": {
 								"mode": "resolver",
+								"family": "text",
+								"operation": "normalize",
+								"value_type": "Data",
 								"config": {
 									"kind": "normalization",
 									"norm_field": "doc.first_name",
@@ -595,6 +598,9 @@ class TestRealRules(FrappeTestCase):
 							"operator": "set",
 							"value": {
 								"mode": "resolver",
+								"family": "text",
+								"operation": "normalize",
+								"value_type": "Data",
 								"config": {
 									"kind": "normalization",
 									"norm_field": "doc.first_name",

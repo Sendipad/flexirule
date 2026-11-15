@@ -96,6 +96,26 @@ export function useValueResolver(props, emit) {
 					record_field: rawCfg.record_field || rawCfg.link_field || "",
 					fetch_field: rawCfg.fetch_field || "",
 				};
+			} else if (family === "math" || kind === "math_formula") {
+				family = "math";
+				kind = "math_formula";
+				const rawCfg = val.config && typeof val.config === "object" ? val.config : val;
+				val = {
+					field_a: rawCfg.field_a || "",
+					math_op: rawCfg.math_op || "+",
+					field_b_type: rawCfg.field_b_type || "field",
+					field_b: rawCfg.field_b || "",
+					constant_b: rawCfg.constant_b !== undefined ? rawCfg.constant_b : 0,
+					precision: rawCfg.precision !== undefined ? rawCfg.precision : 2,
+				};
+			} else if (family === "system_context" || kind === "system_context") {
+				family = "system_context";
+				kind = "system_context";
+				const rawCfg = val.config && typeof val.config === "object" ? val.config : val;
+				val = {
+					sys_token: rawCfg.sys_token || "user",
+					sys_role: rawCfg.sys_role || "",
+				};
 			}
 
 			kind = kind || availableStrategies.value[0]?.kind || "date_time";
@@ -186,6 +206,32 @@ export function useValueResolver(props, emit) {
 						fetch_field: fetch_field || "",
 					},
 				};
+			} else if (newKind === "math_formula") {
+				const { field_a, math_op, field_b_type, field_b, constant_b, precision } = newState;
+				config = {
+					family: "math",
+					operation: "formula",
+					kind: "math_formula",
+					config: {
+						field_a: field_a || "",
+						math_op: math_op || "+",
+						field_b_type: field_b_type || "field",
+						field_b: field_b || "",
+						constant_b: constant_b !== undefined ? constant_b : 0,
+						precision: precision !== undefined ? precision : 2,
+					},
+				};
+			} else if (newKind === "system_context") {
+				const { sys_token, sys_role } = newState;
+				config = {
+					family: "system_context",
+					operation: "get",
+					kind: "system_context",
+					config: {
+						sys_token: sys_token || "user",
+						sys_role: sys_role || "",
+					},
+				};
 			} else {
 				config = { ...newState, kind: newKind };
 			}
@@ -194,7 +240,9 @@ export function useValueResolver(props, emit) {
 				newKind === "collection" ||
 				newKind === "text" ||
 				newKind === "date_time" ||
-				newKind === "lookup"
+				newKind === "lookup" ||
+				newKind === "math_formula" ||
+				newKind === "system_context"
 					? { ...newState, kind: newKind }
 					: config;
 
