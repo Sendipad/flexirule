@@ -99,12 +99,8 @@ class TestValueResolverCore(unittest.TestCase):
 		first_payload = {"mode": "static", "value": 10}
 		second_payload = {"mode": "static", "value": 20}
 
-		first = get_compiled_resolver(
-			action, "same_operand", first_payload, consumer="assignment"
-		)
-		second = get_compiled_resolver(
-			action, "same_operand", second_payload, consumer="assignment"
-		)
+		first = get_compiled_resolver(action, "same_operand", first_payload, consumer="assignment")
+		second = get_compiled_resolver(action, "same_operand", second_payload, consumer="assignment")
 
 		self.assertIsNot(first, second)
 		self.assertEqual(first.resolve({}), 10)
