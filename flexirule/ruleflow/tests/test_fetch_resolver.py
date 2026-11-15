@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
@@ -15,6 +16,38 @@ class TestFetchResolver(unittest.TestCase):
 			}
 		)
 		self.context = {"doc": self.doc, "vars": {}}
+		self.meta_fields = {
+			"Customer": {"name", "customer_group"},
+			"Supplier": {"name", "supplier_group", "supplier_type"},
+			"User": {"name", "email"},
+			"TargetDT": {"name", "email"},
+			"Secret Record": {"name", "secret"},
+		}
+		self.meta_patch = patch("frappe.get_meta", side_effect=self._get_meta)
+		self.permitted_fields_patch = patch(
+			"frappe.model.get_permitted_fields", side_effect=self._get_permitted_fields
+		)
+		self.select_permission_patch = patch("frappe.only_has_select_perm", return_value=False)
+		for patcher in (self.meta_patch, self.permitted_fields_patch, self.select_permission_patch):
+			patcher.start()
+			self.addCleanup(patcher.stop)
+
+	def _get_meta(self, doctype):
+		if doctype not in self.meta_fields:
+			raise frappe.DoesNotExistError
+		return SimpleNamespace(
+			issingle=False,
+			istable=False,
+			get_valid_columns=lambda: list(self.meta_fields[doctype]),
+			get_field=lambda fieldname: SimpleNamespace(
+				fieldtype="Password" if fieldname == "secret" else "Data"
+			)
+			if fieldname in self.meta_fields[doctype]
+			else None,
+		)
+
+	def _get_permitted_fields(self, doctype, permission_type=None):
+		return list(self.meta_fields.get(doctype, {"name"}))
 
 	@patch("frappe.get_list")
 	def test_fetch_resolver_with_prefix(self, mock_get_value):
@@ -32,7 +65,9 @@ class TestFetchResolver(unittest.TestCase):
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
 
-		mock_get_value.assert_called_once_with("Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1
+		)
 		self.assertEqual(result, "PM-0005")
 
 	@patch("frappe.get_list")
@@ -111,7 +146,9 @@ class TestFetchResolver(unittest.TestCase):
 			resolver = ValueResolver.compile(val)
 			result = resolver.resolve(self.context)
 			self.assertEqual(result, "Resolved")
-			mock_get_value.assert_called_with("User", filters={"name": "LINK-001"}, fields=["email"], limit_page_length=1)
+			mock_get_value.assert_called_with(
+				"User", filters={"name": "LINK-001"}, fields=["email"], limit_page_length=1
+			)
 
 	def test_fetch_resolver_missing_link_field_scope(self):
 		# link_field is None
@@ -187,7 +224,9 @@ class TestFetchResolver(unittest.TestCase):
 		}
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
-		mock_get_value.assert_called_once_with("Supplier", filters={"name": "SUP-0001"}, fields=["supplier_group"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Supplier", filters={"name": "SUP-0001"}, fields=["supplier_group"], limit_page_length=1
+		)
 		self.assertEqual(result, "Services")
 
 	@patch("frappe.get_list")
@@ -208,7 +247,9 @@ class TestFetchResolver(unittest.TestCase):
 		}
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
-		mock_get_value.assert_called_once_with("Supplier", filters={"name": "SUP-0099"}, fields=["supplier_type"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Supplier", filters={"name": "SUP-0099"}, fields=["supplier_type"], limit_page_length=1
+		)
 		self.assertEqual(result, "Hardware")
 
 	@patch("frappe.get_list")
@@ -297,6 +338,25 @@ class TestFetchResolver(unittest.TestCase):
 		mock_get_list.assert_not_called()
 		mock_get_permitted_fields.assert_called_once()
 
+	@patch("frappe.get_list")
+	def test_canonical_lookup_rejects_password_fields(self, mock_get_list):
+		resolver = ValueResolver.compile(
+			{
+				"family": "lookup",
+				"operation": "fetch",
+				"kind": "lookup",
+				"config": {
+					"doctype_mode": "static",
+					"target_doctype": "Secret Record",
+					"record_field": "customer",
+					"fetch_field": "secret",
+				},
+			}
+		)
+		with self.assertRaises(frappe.PermissionError):
+			resolver.resolve(self.context)
+		mock_get_list.assert_not_called()
+
 	@patch("frappe.get_list", return_value=[])
 	def test_canonical_lookup_respects_record_permission_filters(self, mock_get_list):
 		self.doc.party_type = "Customer"
@@ -322,8 +382,8 @@ class TestFetchResolver(unittest.TestCase):
 			limit_page_length=1,
 		)
 
-	@patch("frappe.has_permission", return_value=False)
-	def test_canonical_lookup_permission_denied(self, mock_has_perm):
+	@patch("frappe.get_list", side_effect=frappe.PermissionError)
+	def test_canonical_lookup_permission_denied(self, mock_get_list):
 		self.doc.party_type = "Customer"
 		self.doc.party = "CUST-0001"
 

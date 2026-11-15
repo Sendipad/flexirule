@@ -32,8 +32,8 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	format_template_value,
 	invalidate_resolver_registry_fingerprint,
 	parse_static_value,
-	resolver_registry_fingerprint,
 	resolve_variable,
+	resolver_registry_fingerprint,
 	safe_read_segment,
 )
 from flexirule.ruleflow.core.flexvalue_contract import (
@@ -978,7 +978,7 @@ class LookupResolver(CompiledResolver):
 				"lookup_target_not_record_doctype",
 				"$",
 				_("Lookup Resolver requires a regular DocType with named records."),
-				)
+			)
 		valid_columns = set(meta.get_valid_columns())
 		if self.fetch_field not in valid_columns:
 			raise ConditionEvaluationError(
@@ -993,9 +993,7 @@ class LookupResolver(CompiledResolver):
 		from frappe.model import get_permitted_fields
 
 		permission_type = "select" if frappe.only_has_select_perm(resolved_doctype) else "read"
-		permitted_fields = get_permitted_fields(
-			resolved_doctype, permission_type=permission_type
-		)
+		permitted_fields = get_permitted_fields(resolved_doctype, permission_type=permission_type)
 		if self.fetch_field not in permitted_fields:
 			raise frappe.PermissionError(
 				_("Insufficient field-level read permission for '{0}.{1}'.").format(
