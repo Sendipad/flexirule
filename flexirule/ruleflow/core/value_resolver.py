@@ -17,6 +17,7 @@ from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, C
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_RESOLVER_REGISTRY,
+	invalidate_resolver_registry_fingerprint,
 	FRAPPE_VALUE_TYPES,
 	MAX_FLEXVALUE_DEPTH,
 	MAX_PATH_SEGMENTS,
@@ -1101,6 +1102,8 @@ class ValueResolver:
 			)
 
 		key = (family, operation)
+		if key in cls.REGISTRY:
+			raise ValueError(f"Resolver already registered: {family}.{operation}")
 		cls.REGISTRY[key] = {
 			"family": family,
 			"operation": operation,
@@ -1116,6 +1119,7 @@ class ValueResolver:
 			"resolve": lambda cfg, ctx: factory(cfg, None).resolve(ctx),
 		}
 		cls._REGISTRY_FINGERPRINT_CACHE = None
+		invalidate_resolver_registry_fingerprint()
 
 	@classmethod
 	def registry_fingerprint(cls) -> str:

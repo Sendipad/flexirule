@@ -356,6 +356,23 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			"Int",
 		)
 
+	def test_unified_registration_invalidates_condition_registry_fingerprint(self):
+		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
+
+		before = resolver_registry_fingerprint()
+		ValueResolver.register_resolver(
+			family="test_registry_fingerprint",
+			operation="resolver_added",
+			label="Fingerprint test resolver",
+			output_type="Data",
+			config_schema={"type": "object"},
+			permission_policy="no_data_access",
+			validate_config=lambda cfg, path, scopes, rdepth, fdepth, consumer: None,
+			factory=lambda cfg, meta: StaticResolver("fingerprint"),
+			condition_operand_allowed=True,
+		)
+		self.assertNotEqual(resolver_registry_fingerprint(), before)
+
 	def test_condition_enabled_resolver_requires_no_data_access_policy(self):
 		with self.assertRaisesRegex(ValueError, "no_data_access"):
 			ValueResolver.register_resolver(

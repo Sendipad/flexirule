@@ -242,6 +242,12 @@ def register_condition_resolver(
 		"resolve": resolve,
 		"factory": lambda cfg, meta: _AdHocResolver(cfg),
 	}
+	invalidate_resolver_registry_fingerprint()
+
+
+def invalidate_resolver_registry_fingerprint() -> None:
+	"""Invalidate the condition-plan cache key after any shared-registry mutation."""
+	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
 	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
 
 
