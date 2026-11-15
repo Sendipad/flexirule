@@ -114,7 +114,7 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			output_type="Int",
 			config_schema={"type": "object"},
 			permission_policy="no_data_access",
-			validate_config=lambda cfg, path, scopes, rdepth, fdepth: None,
+			validate_config=lambda cfg, path, scopes, rdepth, fdepth, consumer: None,
 			factory=lambda cfg, meta: CountingResolver(),
 			condition_operand_allowed=True,
 		)
@@ -262,6 +262,113 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		with self.assertRaises(ConditionValidationError) as cm:
 			ValueResolver.compile_flex_value(payload_unknown_mode)
 		self.assertEqual(cm.exception.code, "unknown_flex_value_mode")
+
+	def test_condition_consumer_is_preserved_through_nested_resolver_configs(self):
+		from flexirule.ruleflow.core.condition_contract import validate_condition_node
+
+		lookup = {
+			"mode": "resolver",
+			"family": "lookup",
+			"operation": "fetch",
+			"config": {
+				"doctype_mode": "static",
+				"target_doctype": "User",
+				"record_field": "doc.owner",
+				"fetch_field": "email",
+			},
+		}
+
+		def comparison(operand):
+			return {
+				"type": "comparison",
+				"operator": "eq",
+				"left": operand,
+				"right": {"mode": "static", "value_type": "Data", "value": "allowed"},
+			}
+
+		# Each outer resolver is condition-approved, but nested lookup.fetch must
+		# retain the condition consumer and remain denied.
+		nested_values = [
+			{
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "extract",
+				"config": {"source": lookup, "component": "year"},
+			},
+			{
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "extract",
+				"config": {
+					"source": {
+						"mode": "resolver",
+						"family": "date_time",
+						"operation": "calculate",
+						"config": {"source": lookup, "offset_unit": "days"},
+					},
+					"component": "year",
+				},
+			},
+			{
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "diff",
+				"config": {"start_source": lookup, "diff_unit": "days"},
+			},
+			{
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": lookup, "boundary_type": "start_of_day"},
+			},
+		]
+		for operand in nested_values:
+			with self.subTest(operand=operand), self.assertRaises(ConditionValidationError) as raised:
+				validate_condition_node(comparison(operand))
+			self.assertEqual(raised.exception.code, "resolver_not_allowed")
+
+		# Templates and collection resolver predicates must apply the same policy.
+		template_operand = {
+			"mode": "template",
+			"segments": [{"type": "value", "value": nested_values[0]}],
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			validate_condition_node(comparison(template_operand))
+		self.assertEqual(raised.exception.code, "resolver_not_allowed")
+
+		collection_operand = {
+			"mode": "resolver",
+			"family": "collection",
+			"operation": "any",
+			"config": {
+				"source": "doc.items",
+				"condition": comparison(lookup),
+			},
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			validate_condition_node(comparison(collection_operand))
+		self.assertEqual(raised.exception.code, "resolver_not_allowed")
+
+		# Other consumers retain their own allow-list: lookup.fetch is valid when
+		# nested beneath an approved resolver for the Assignment consumer.
+		self.assertEqual(
+			ValueResolver.validate_flex_value(nested_values[0], consumer="assignment"),
+			"Int",
+		)
+
+	def test_condition_enabled_resolver_requires_no_data_access_policy(self):
+		with self.assertRaisesRegex(ValueError, "no_data_access"):
+			ValueResolver.register_resolver(
+				family="test_insecure_condition",
+				operation="fetch",
+				label="Insecure condition resolver",
+				output_type="Data",
+				config_schema={"type": "object"},
+				permission_policy="authorized_read",
+				validate_config=lambda cfg, path, scopes, rdepth, fdepth, consumer: None,
+				factory=lambda cfg, meta: StaticResolver("unexpected"),
+				condition_operand_allowed=True,
+			)
 
 	def test_frappe_fieldtype_catalogue_parity(self):
 		# Finding 6: All 44 standard DocField options recognized, structural fieldtypes separated

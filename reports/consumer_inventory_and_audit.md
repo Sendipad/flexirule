@@ -1,7 +1,7 @@
 # Canonical Condition and FlexValue Consumer Inventory
 
-**Reviewed:** 14 November 2026  
-**Code baseline:** `f53818bbe068e7d3c46030108112eec6e3706b7b` plus the follow-up fixes in this PR  
+**Reviewed:** 15 November 2026  
+**Code baseline:** `a999ee696a0fde83fff3ae79e3bdbbd92e58967b` plus this follow-up resolver-consumer security hardening  
 **Scope:** Active condition/FlexValue producers, validators, execution paths, and legacy compatibility modules in FlexiRule.
 
 ## 1. Active consumer inventory
@@ -16,12 +16,14 @@
 | `CanonicalConditionLeaf.vue` | `FlexValueControl.vue` for both operands | Fieldtype metadata drives the operand descriptor. Link options and link filters are retained; Check values serialize as Frappe-compatible integer 0/1. | `canonical_condition_adapter.test.mjs`, `flex_value_control_lifecycle.test.mjs` |
 | Membership operators (`in`, `not_in`) | Native MultiSelect controls / canonical list FlexValues | Link membership keeps the target DocType and filter metadata; Check membership uses integer 0/1 choices. | `static_presentation.test.mjs`, `flexvalue_p1_p2_verification.test.mjs` |
 | `TextGeneratorControl.vue` | `CanonicalConditionBuilder.vue` and canonical template AST | Conditional segments compile to an isolated condition registry. Loop alias DocType metadata is now persisted with each registry entry and restored at render time, including mapping-backed child rows. | `test_text_generator_canonical_conditions.py` |
-| `FlexValueControl.vue` and resolver strategies | Shared FlexValue contract plus registered resolver strategies | Nested resolver validators are awaited by the owner. Resolver execution remains controlled by the consumer contract and backend allow-list. | `test_unified_flexvalue.py`, `flexvalue_control_ux_refactor.test.mjs` |
+| `FlexValueControl.vue` and resolver strategies | Shared resolver registry with condition-specific and general FlexValue validation entry points | Nested resolver config validation preserves the consumer recursively; condition-enabled registration requires `no_data_access`. Legacy `ValueResolver.compile()` remains a separate compatibility boundary. | `test_unified_flexvalue.py`, `flexvalue_control_ux_refactor.test.mjs` |
 | `api.validate_condition` | `validate_condition_node()` | Read-only validation API supports `collection_source` and derives row DocType from trusted Frappe metadata. | `test_canonical_condition_evaluator.py` |
 | `api.validate_rule_document` / shared validation service | `Rule.compile_conditions()` then `validate_rule_definition()` | Both full-rule and single-action handler validation now receive the owning Rule context so metadata-aware handlers can resolve the correct DocType. | `test_rule.py` |
 | `SubRuleHandler` | Canonical eligibility evaluation | Caller Rule and document metadata are propagated into child contexts, including callers without an eligibility condition. | `test_sub_rule_contract.py` |
 | Backend `CollectionResolver` | `prepare_condition()` / `evaluate_prepared_condition()` | Child-row metadata and the bounded evaluation context are retained for mapping-backed rows and nested predicates. | `test_collection_resolver.py`, `test_canonical_condition_evaluator.py` |
 | Frappe native `Check` and `Duration` fields | Typed boundary in canonical evaluator and FlexValue parser | Check is integer 0/1; Duration is integer seconds. Neither is conflated with Python bool or `datetime.time`. | `test_canonical_condition_evaluator.py`, `test_unified_flexvalue.py` |
+
+| Legacy CollectionResolver predicate fallback | `CollectionResolver` → `ConditionEvaluator` | Non-canonical predicates only; canonical direct nodes never fall through to legacy evaluation. | Deprecated compatibility path, intentionally retained. |
 
 ## 2. Legacy compatibility boundary
 

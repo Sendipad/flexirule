@@ -1063,7 +1063,7 @@ class ValueResolver:
 		output_type: str,
 		config_schema: dict[str, Any],
 		permission_policy: str,
-		validate_config: Callable[[dict, str, set[str], int, int], None],
+		validate_config: Callable[[dict, str, set[str], int, int, str | None], None],
 		factory: Callable[[dict, Any], CompiledResolver],
 		supported_consumers: set[str] | None = None,
 		condition_operand_allowed: bool = False,
@@ -1095,6 +1095,10 @@ class ValueResolver:
 			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 		if not callable(validate_config) or not callable(factory):
 			raise ValueError("Resolver validator and factory must be callable")
+		if condition_operand_allowed and permission_policy != "no_data_access":
+			raise ValueError(
+				"Condition operands may only enable resolvers with permission_policy='no_data_access'"
+			)
 
 		key = (family, operation)
 		cls.REGISTRY[key] = {
@@ -1302,7 +1306,7 @@ class ValueResolver:
 				_fail("unknown_value_type", f"{path}.value_type", "Unknown declared resolver output type")
 
 			entry["validate_config"](
-				config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
+				config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1, consumer
 			)
 			return entry["output_type"]
 
@@ -1828,7 +1832,7 @@ def _register_builtins():
 				)
 
 	# date_time.current
-	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"token"}, path)
 		token = cfg.get("token", "date")
 		if token is not None and token not in {"date", "datetime", "now", "time"}:
@@ -1847,7 +1851,7 @@ def _register_builtins():
 	)
 
 	# date_time.calculate
-	def _val_dt_calculate(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_calculate(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(
 			cfg,
 			set(),
@@ -1884,6 +1888,7 @@ def _register_builtins():
 					allowed_scopes=allowed_scopes,
 					resolver_depth=r_depth,
 					flexvalue_depth=fv_depth,
+					consumer=consumer,
 				)
 			elif isinstance(cfg["source"], str):
 				_validate_path_str(cfg["source"], "source", path, allowed_scopes)
@@ -1895,6 +1900,7 @@ def _register_builtins():
 					allowed_scopes=allowed_scopes,
 					resolver_depth=r_depth,
 					flexvalue_depth=fv_depth,
+					consumer=consumer,
 				)
 			elif not isinstance(cfg["offset_value"], int | float | str):
 				_fail(
@@ -1923,7 +1929,7 @@ def _register_builtins():
 	)
 
 	# date_time.diff
-	def _val_dt_diff(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_diff(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(
 			cfg,
 			set(),
@@ -1957,6 +1963,7 @@ def _register_builtins():
 						allowed_scopes=allowed_scopes,
 						resolver_depth=r_depth,
 						flexvalue_depth=fv_depth,
+						consumer=consumer,
 					)
 				elif isinstance(cfg[src_key], str):
 					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
@@ -1982,7 +1989,7 @@ def _register_builtins():
 	)
 
 	# date_time.extract
-	def _val_dt_extract(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_extract(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"source", "base_field", "component"}, path)
 		if "component" in cfg and cfg["component"] not in {
 			"year",
@@ -2005,6 +2012,7 @@ def _register_builtins():
 						allowed_scopes=allowed_scopes,
 						resolver_depth=r_depth,
 						flexvalue_depth=fv_depth,
+						consumer=consumer,
 					)
 				elif isinstance(cfg[src_key], str):
 					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
@@ -2025,7 +2033,7 @@ def _register_builtins():
 	)
 
 	# date_time.boundary
-	def _val_dt_boundary(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_boundary(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"source", "base_field", "boundary_type"}, path)
 		allowed_btypes = {
 			"start_of_day",
@@ -2055,6 +2063,7 @@ def _register_builtins():
 						allowed_scopes=allowed_scopes,
 						resolver_depth=r_depth,
 						flexvalue_depth=fv_depth,
+						consumer=consumer,
 					)
 				elif isinstance(cfg[src_key], str):
 					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
@@ -2075,7 +2084,7 @@ def _register_builtins():
 	)
 
 	# date_time.format
-	def _val_dt_format(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_dt_format(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"fmt_field", "fmt_config", "source"}, path)
 		if "fmt_field" in cfg and cfg["fmt_field"] is not None:
 			_validate_path_str(str(cfg["fmt_field"]), "fmt_field", path, allowed_scopes)
@@ -2099,7 +2108,7 @@ def _register_builtins():
 	)
 
 	# math.formula
-	def _val_math_formula(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_math_formula(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(
 			cfg,
 			set(),
@@ -2138,7 +2147,7 @@ def _register_builtins():
 	)
 
 	# text.combine
-	def _val_text_combine(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_text_combine(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"str_op", "str_a_type", "str_a", "str_b_type", "str_b", "kind"}, path)
 		if cfg.get("str_a_type") == "field" and cfg.get("str_a"):
 			_validate_path_str(str(cfg["str_a"]), "str_a", path, allowed_scopes)
@@ -2164,7 +2173,7 @@ def _register_builtins():
 	)
 
 	# text.case
-	def _val_text_case(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_text_case(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"case_mode", "field"}, path)
 		if "case_mode" in cfg and cfg["case_mode"] not in {
 			"uppercase",
@@ -2197,7 +2206,7 @@ def _register_builtins():
 	)
 
 	# text.normalize
-	def _val_text_normalize(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_text_normalize(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op", "kind"}, path)
 		if cfg.get("norm_field"):
 			_validate_path_str(str(cfg["norm_field"]), "norm_field", path, allowed_scopes)
@@ -2225,7 +2234,7 @@ def _register_builtins():
 	)
 
 	# text.format
-	def _val_text_format(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_text_format(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"fmt_field", "fmt_config"}, path)
 		if cfg.get("fmt_field"):
 			_validate_path_str(str(cfg["fmt_field"]), "fmt_field", path, allowed_scopes)
@@ -2249,7 +2258,7 @@ def _register_builtins():
 	)
 
 	# lookup.fetch
-	def _val_lookup_fetch(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_lookup_fetch(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(
 			cfg,
 			set(),
@@ -2307,7 +2316,7 @@ def _register_builtins():
 		condition_operand_allowed=False,
 	)
 
-	def _val_collection(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_collection(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(
 			cfg, set(), {"source", "condition", "target_field", "agg_field", "operation", "kind"}, path
 		)
@@ -2352,7 +2361,7 @@ def _register_builtins():
 		)
 
 	# system_context.get
-	def _val_system_context(cfg, path, allowed_scopes, r_depth, fv_depth):
+	def _val_system_context(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"sys_token", "sys_role", "kind"}, path)
 		tok = cfg.get("sys_token", "user")
 		if tok not in {"user", "role_check", None}:

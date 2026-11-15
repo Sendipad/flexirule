@@ -174,7 +174,7 @@ def register_condition_resolver(
 	output_type: str,
 	config_schema: dict[str, Any],
 	permission_policy: str,
-	validate_config: Callable[[dict, str, set[str], int, int], None],
+	validate_config: Callable[[dict, str, set[str], int, int, str], None],
 	resolve: Callable[[dict, dict], Any],
 	condition_operand_allowed: bool = False,
 	required_capability: str = "condition_operand",
@@ -499,7 +499,9 @@ def validate_flex_value(
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
 		if entry is None:
 			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
-		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1)
+		entry["validate_config"](
+			config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1, "condition"
+		)
 		return entry["output_type"]
 
 	if mode == "template":
