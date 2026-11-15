@@ -995,8 +995,7 @@ class LookupResolver(CompiledResolver):
 
 		from frappe.model import get_permitted_fields
 
-		permission_type = "select" if frappe.only_has_select_perm(resolved_doctype) else "read"
-		permitted_fields = get_permitted_fields(resolved_doctype, permission_type=permission_type)
+		permitted_fields = get_permitted_fields(resolved_doctype, permission_type="read")
 		if self.fetch_field not in permitted_fields:
 			raise frappe.PermissionError(
 				_("Insufficient field-level read permission for '{0}.{1}'.").format(
@@ -1012,6 +1011,15 @@ class LookupResolver(CompiledResolver):
 		)
 		if not rows:
 			return None
+
+		# get_list applies query-level restrictions (User Permissions, owner/share
+		# rules, and permission_query_conditions). Also check the specific document
+		# so DocType controller has_permission hooks are enforced.
+		if not frappe.has_permission(resolved_doctype, "read", doc=link_value):
+			raise frappe.PermissionError(
+				_("Insufficient read permission for {0} {1}.").format(resolved_doctype, link_value)
+			)
+
 		row = rows[0]
 		if self.fetch_field not in row:
 			raise frappe.PermissionError(

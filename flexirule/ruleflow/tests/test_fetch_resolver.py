@@ -27,8 +27,7 @@ class TestFetchResolver(unittest.TestCase):
 		self.permitted_fields_patch = patch(
 			"frappe.model.get_permitted_fields", side_effect=self._get_permitted_fields
 		)
-		self.select_permission_patch = patch("frappe.only_has_select_perm", return_value=False)
-		for patcher in (self.meta_patch, self.permitted_fields_patch, self.select_permission_patch):
+		for patcher in (self.meta_patch, self.permitted_fields_patch):
 			patcher.start()
 			self.addCleanup(patcher.stop)
 
@@ -182,7 +181,9 @@ class TestFetchResolver(unittest.TestCase):
 		}
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
-		mock_get_value.assert_called_once_with("Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1
+		)
 		self.assertEqual(result, "Commercial")
 
 	@patch("frappe.get_list")
@@ -204,7 +205,9 @@ class TestFetchResolver(unittest.TestCase):
 		}
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
-		mock_get_value.assert_called_once_with("Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1)
+		mock_get_value.assert_called_once_with(
+			"Customer", filters={"name": "CUST-0001"}, fields=["customer_group"], limit_page_length=1
+		)
 		self.assertEqual(result, "Retail")
 
 	@patch("frappe.get_list")
@@ -358,6 +361,31 @@ class TestFetchResolver(unittest.TestCase):
 		with self.assertRaises(frappe.PermissionError):
 			resolver.resolve(self.context)
 		mock_get_list.assert_not_called()
+
+	@patch("frappe.has_permission", return_value=False)
+	@patch("frappe.get_list", return_value=[{"customer_group": "Retail"}])
+	def test_canonical_lookup_checks_document_permission(self, mock_get_list, mock_has_permission):
+		self.doc.party_type = "Customer"
+		self.doc.party = "CUST-0001"
+		resolver = ValueResolver.compile(
+			{
+				"family": "lookup",
+				"operation": "fetch",
+				"kind": "lookup",
+				"config": {
+					"doctype_mode": "dynamic",
+					"doctype_source": "party_type",
+					"record_field": "party",
+					"fetch_field": "customer_group",
+				},
+			}
+		)
+		with self.assertRaises(frappe.PermissionError):
+			resolver.resolve(self.context)
+		mock_get_list.assert_called_once()
+		mock_has_permission.assert_called_once_with(
+			"Customer", "read", doc="CUST-0001"
+		)
 
 	@patch("frappe.get_list", return_value=[])
 	def test_canonical_lookup_respects_record_permission_filters(self, mock_get_list):
