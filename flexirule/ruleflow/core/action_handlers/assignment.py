@@ -216,7 +216,9 @@ class AssignmentHandler(ActionHandler):
 				else:
 					from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
 
-					resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
+					resolver = get_compiled_resolver(
+					action, f"assign_{idx}", assignment.get("value"), consumer="assignment"
+				)
 					operand_value = resolver.resolve(context_copy)
 
 			# Apply operation to staged value

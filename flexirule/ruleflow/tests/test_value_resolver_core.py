@@ -86,12 +86,12 @@ class TestValueResolverCore(unittest.TestCase):
 		action = frappe._dict({"name": "test_action"})
 		payload = {"mode": "static", "value": 100}
 
-		res1 = get_compiled_resolver(action, "field1", payload)
-		res2 = get_compiled_resolver(action, "field1", payload)
+		res1 = get_compiled_resolver(action, "field1", payload, consumer="assignment")
+		res2 = get_compiled_resolver(action, "field1", payload, consumer="assignment")
 
 		self.assertIs(res1, res2)  # Should be same instance from cache
 
-		res3 = get_compiled_resolver(action, "field2", payload)
+		res3 = get_compiled_resolver(action, "field2", payload, consumer="assignment")
 		self.assertIsNot(res1, res3)
 
 	def test_none_resolver(self):

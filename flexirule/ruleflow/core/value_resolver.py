@@ -1052,7 +1052,6 @@ class ValueResolver:
 	"""
 
 	REGISTRY = CONDITION_RESOLVER_REGISTRY
-	_REGISTRY_FINGERPRINT_CACHE: ClassVar[str | None] = None
 
 	@classmethod
 	def register_resolver(
@@ -1118,22 +1117,12 @@ class ValueResolver:
 			"factory": factory,
 			"resolve": lambda cfg, ctx: factory(cfg, None).resolve(ctx),
 		}
-		cls._REGISTRY_FINGERPRINT_CACHE = None
 		invalidate_resolver_registry_fingerprint()
 
 	@classmethod
 	def registry_fingerprint(cls) -> str:
-		"""Stable cache key material; implementation callables stay private."""
-		if cls._REGISTRY_FINGERPRINT_CACHE is None:
-			payload = json.dumps(
-				cls.resolver_contract_dto(),
-				sort_keys=True,
-				ensure_ascii=False,
-				separators=(",", ":"),
-				allow_nan=False,
-			)
-			cls._REGISTRY_FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-		return cls._REGISTRY_FINGERPRINT_CACHE
+		"""Return the shared registry fingerprint used by all resolver caches."""
+		return resolver_registry_fingerprint()
 
 	@classmethod
 	def resolver_contract_dto(cls) -> list[dict[str, Any]]:
@@ -1778,7 +1767,9 @@ class CanonicalTemplateResolver(CompiledResolver):
 		return "".join(parts)
 
 
-def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResolver:
+def get_compiled_resolver(
+	action, key: str, value_payload: Any, *, consumer: str
+) -> CompiledResolver:
 	"""
 	Retrieve or create a request-local compiled ValueResolver object for extreme execution efficiency.
 	Accounts for action, key, and registry fingerprint.
@@ -1788,7 +1779,7 @@ def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResol
 
 	action_name = getattr(action, "name", "action") or "action"
 	fp = ValueResolver.registry_fingerprint()
-	cache_key = f"{action_name}_{key}_{fp}"
+	cache_key = f"{action_name}_{key}_{consumer}_{fp}"
 
 	if cache_key not in frappe.local.flexirule_compiled_resolvers:
 		if isinstance(value_payload, dict) and "mode" in value_payload:
@@ -1802,7 +1793,7 @@ def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResol
 			if is_canonical:
 				# Strict canonical compilation without fallback
 				frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile_flex_value(
-					value_payload
+					value_payload, consumer=consumer
 				)
 			else:
 				# Explicit legacy payload conversion

@@ -373,6 +373,38 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		)
 		self.assertNotEqual(resolver_registry_fingerprint(), before)
 
+	def test_compiled_resolver_cache_is_scoped_to_consumer(self):
+		from types import SimpleNamespace
+
+		from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
+
+		action = SimpleNamespace(name="consumer_cache_test")
+		lookup = {
+			"mode": "resolver",
+			"family": "lookup",
+			"operation": "fetch",
+			"config": {
+				"doctype_mode": "static",
+				"target_doctype": "User",
+				"record_field": "doc.owner",
+				"fetch_field": "email",
+			},
+		}
+
+		query_resolver = get_compiled_resolver(
+			action, "shared_operand", lookup, consumer="query_records"
+		)
+		assignment_resolver = get_compiled_resolver(
+			action, "shared_operand", lookup, consumer="assignment"
+		)
+		self.assertIsNot(query_resolver, assignment_resolver)
+
+		# A cached Query Records resolver must not be returned to a condition
+		# consumer, which explicitly disallows lookup.fetch.
+		with self.assertRaises(ConditionValidationError) as raised:
+			get_compiled_resolver(action, "shared_operand", lookup, consumer="condition")
+		self.assertEqual(raised.exception.code, "resolver_not_allowed")
+
 	def test_condition_enabled_resolver_requires_no_data_access_policy(self):
 		with self.assertRaisesRegex(ValueError, "no_data_access"):
 			ValueResolver.register_resolver(

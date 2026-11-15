@@ -13,7 +13,7 @@
 | `ConditionNode.vue` | `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionNode.vue` | `CanonicalConditionLeaf.vue` | No | Marked DEPRECATED |
 | `CollectionUI.vue` | `flexirule/public/js/flexirule/rule_builder/components/condition_builder/CollectionUI.vue` | `CanonicalCollectionEditor.vue` | No | Marked DEPRECATED |
 | `condition_validator.js` | `flexirule/public/js/flexirule/rule_builder/components/condition_builder/condition_validator.js` | `canonical_condition_validation.mjs` / `validate_condition` API | No | Marked DEPRECATED |
-| `ConditionCompiler` | `flexirule/ruleflow/core/compiler.py` | `condition_contract.validate_condition_node`, `condition_evaluator.prepare_condition` | No active consumers (retained for backward compatibility) | Marked DEPRECATED |
+| `ConditionCompiler` | `flexirule/ruleflow/core/compiler.py` | `condition_contract.validate_condition_node`, `condition_evaluator.prepare_condition` | Yes — legacy trigger/action payload compilation, Sub-Rule fallback, and deprecated API operator metadata | Marked DEPRECATED; retained only for non-canonical compatibility and metadata |
 | `ConditionEvaluator` | `flexirule/ruleflow/core/evaluator.py` | `flexirule.ruleflow.core.condition_evaluator` | Yes — legacy-only fallback in `CollectionResolver` for non-canonical predicates | Marked DEPRECATED; fallback is retained intentionally until a separate compatibility-removal decision |
 | `_compile_condition_tree` | `flexirule/ruleflow/doctype/rule/rule.py` | AST stored in segment config & evaluated via `_eval_condition` | No active consumers | Marked DEPRECATED |
 | `get_operator_config` | `flexirule/ruleflow/api.py` | `flexirule.ruleflow.api.get_condition_contract` | No active UI consumers | Marked DEPRECATED |

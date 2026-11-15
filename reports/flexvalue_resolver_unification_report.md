@@ -13,7 +13,7 @@ This report describes the architecture at the current PR review baseline. It doe
 
 ### Resolver security invariant
 
-A resolver that is allowed as a condition operand must be read-only and declare `permission_policy="no_data_access"`. Nested resolver configuration is validated under the same consumer as its parent; this prevents an approved outer resolver from hiding a database-backed `lookup.fetch` operation in a nested source/offset. The general resolver registration API enforces the same invariant as the condition-specific registration API. Every mutation of the shared registry also invalidates the resolver fingerprint used by prepared-condition cache keys, so a changed resolver implementation cannot reuse a plan compiled against an earlier registry.
+A resolver that is allowed as a condition operand must be read-only and declare `permission_policy="no_data_access"`. Nested resolver configuration is validated under the same consumer as its parent; this prevents an approved outer resolver from hiding a database-backed `lookup.fetch` operation in a nested source/offset. The general resolver registration API enforces the same invariant as the condition-specific registration API. Every mutation of the shared registry also invalidates the single shared resolver fingerprint used by prepared-condition and request-local FlexValue cache keys. Request-local resolver cache entries are scoped by consumer, so a resolver compiled for Query Records cannot be reused by an Assignment or condition consumer.
 
 ## 2. Historical Benchmark Record (Not Current-Head Evidence)
 
