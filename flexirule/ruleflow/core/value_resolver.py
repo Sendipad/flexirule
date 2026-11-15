@@ -960,24 +960,65 @@ class LookupResolver(CompiledResolver):
 		if not resolved_doctype:
 			return None
 
-		# Check permission for non-Administrator sessions
-		if (
-			hasattr(frappe, "session")
-			and frappe.session
-			and getattr(frappe.session, "user", None)
-			and frappe.session.user != "Administrator"
-		):
-			if not frappe.has_permission(resolved_doctype, "read"):
-				raise frappe.PermissionError(
-					_("Insufficient permission to read DocType '{0}'.").format(resolved_doctype)
-				)
-
-		# Resolve record name / ID
+		# Resolve record name / ID before querying. A missing link is a normal empty result.
 		link_value = self._resolve_scoped_value(context, self.record_field)
 		if not link_value:
 			return None
 
-		return frappe.db.get_value(resolved_doctype, link_value, self.fetch_field)
+		# Frappe's db.get_value() does not apply record-level User Permissions,
+		# shares, owner restrictions, permission_query_conditions, or field-level
+		# read permissions. Use the native permission-aware list query instead.
+		try:
+			meta = frappe.get_meta(resolved_doctype)
+		except frappe.DoesNotExistError:
+			return None
+
+		if meta.issingle or frappe.is_table(resolved_doctype):
+			raise ConditionEvaluationError(
+				"lookup_target_not_record_doctype",
+				"$",
+				_("Lookup Resolver requires a regular DocType with named records."),
+				)
+		valid_columns = set(meta.get_valid_columns())
+		if self.fetch_field not in valid_columns:
+			raise ConditionEvaluationError(
+				"lookup_field_not_found",
+				"$",
+				_("Field '{0}' does not exist on DocType '{1}'.").format(self.fetch_field, resolved_doctype),
+			)
+		field = meta.get_field(self.fetch_field)
+		if field and field.fieldtype == "Password":
+			raise frappe.PermissionError(_("Password fields cannot be read through Lookup Resolver."))
+
+		from frappe.model import get_permitted_fields
+
+		permission_type = "select" if frappe.only_has_select_perm(resolved_doctype) else "read"
+		permitted_fields = get_permitted_fields(
+			resolved_doctype, permission_type=permission_type
+		)
+		if self.fetch_field not in permitted_fields:
+			raise frappe.PermissionError(
+				_("Insufficient field-level read permission for '{0}.{1}'.").format(
+					resolved_doctype, self.fetch_field
+				)
+			)
+
+		rows = frappe.get_list(
+			resolved_doctype,
+			filters={"name": link_value},
+			fields=[self.fetch_field],
+			limit_page_length=1,
+		)
+		if not rows:
+			return None
+		row = rows[0]
+		if self.fetch_field not in row:
+			raise frappe.PermissionError(
+				_("Insufficient field-level read permission for '{0}.{1}'.").format(
+					resolved_doctype, self.fetch_field
+				)
+			)
+		return row.get(self.fetch_field)
 
 
 class FetchResolver(LookupResolver):
