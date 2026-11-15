@@ -1,14 +1,13 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
-import hashlib
 import json
 import math
 import re
 from collections.abc import Callable, Mapping
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
-from typing import Any, ClassVar
+from typing import Any
 
 import frappe
 from frappe import _

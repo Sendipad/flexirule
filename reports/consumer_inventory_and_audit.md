@@ -1,7 +1,7 @@
 # Canonical Condition and FlexValue Consumer Inventory
 
 **Reviewed:** 15 November 2026  
-**Code baseline:** `a999ee696a0fde83fff3ae79e3bdbbd92e58967b` plus this follow-up resolver-consumer security hardening  
+**Code baseline:** `c8e1ad7ddec8874a7c5d95b2d09cc0b57dbf3327` (nested consumer validation, consumer-scoped resolver cache, and shared registry fingerprint invalidation)  
 **Scope:** Active condition/FlexValue producers, validators, execution paths, and legacy compatibility modules in FlexiRule.
 
 ## 1. Active consumer inventory
