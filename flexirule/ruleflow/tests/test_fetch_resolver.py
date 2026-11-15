@@ -27,7 +27,8 @@ class TestFetchResolver(unittest.TestCase):
 		self.permitted_fields_patch = patch(
 			"frappe.model.get_permitted_fields", side_effect=self._get_permitted_fields
 		)
-		for patcher in (self.meta_patch, self.permitted_fields_patch):
+		self.document_permission_patch = patch("frappe.has_permission", return_value=True)
+		for patcher in (self.meta_patch, self.permitted_fields_patch, self.document_permission_patch):
 			patcher.start()
 			self.addCleanup(patcher.stop)
 
@@ -383,9 +384,7 @@ class TestFetchResolver(unittest.TestCase):
 		with self.assertRaises(frappe.PermissionError):
 			resolver.resolve(self.context)
 		mock_get_list.assert_called_once()
-		mock_has_permission.assert_called_once_with(
-			"Customer", "read", doc="CUST-0001"
-		)
+		mock_has_permission.assert_called_once_with("Customer", "read", doc="CUST-0001")
 
 	@patch("frappe.get_list", return_value=[])
 	def test_canonical_lookup_respects_record_permission_filters(self, mock_get_list):

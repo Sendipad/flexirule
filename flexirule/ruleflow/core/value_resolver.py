@@ -976,7 +976,7 @@ class LookupResolver(CompiledResolver):
 		except frappe.DoesNotExistError:
 			return None
 
-		if meta.issingle or frappe.is_table(resolved_doctype):
+		if meta.issingle or meta.istable:
 			raise ConditionEvaluationError(
 				"lookup_target_not_record_doctype",
 				"$",
