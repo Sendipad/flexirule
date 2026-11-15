@@ -31,7 +31,9 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	_validate_json_value,
 	_validate_path,
 	format_template_value,
+	invalidate_resolver_registry_fingerprint,
 	parse_static_value,
+	resolver_registry_fingerprint,
 	resolve_variable,
 	safe_read_segment,
 )
@@ -1766,9 +1768,7 @@ class CanonicalTemplateResolver(CompiledResolver):
 		return "".join(parts)
 
 
-def get_compiled_resolver(
-	action, key: str, value_payload: Any, *, consumer: str
-) -> CompiledResolver:
+def get_compiled_resolver(action, key: str, value_payload: Any, *, consumer: str) -> CompiledResolver:
 	"""
 	Retrieve or create a request-local compiled ValueResolver object for extreme execution efficiency.
 	Accounts for action, key, and registry fingerprint.

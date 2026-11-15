@@ -554,7 +554,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			resolver_invocations += 1
 			return config.get("value", 0)
 
-		def noop_validator(config, path, allowed_scopes, resolver_depth, flexvalue_depth):
+		def noop_validator(config, path, allowed_scopes, resolver_depth, flexvalue_depth, consumer):
 			pass
 
 		fvc.register_condition_resolver(

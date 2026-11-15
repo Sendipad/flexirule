@@ -391,12 +391,8 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			},
 		}
 
-		query_resolver = get_compiled_resolver(
-			action, "shared_operand", lookup, consumer="query_records"
-		)
-		assignment_resolver = get_compiled_resolver(
-			action, "shared_operand", lookup, consumer="assignment"
-		)
+		query_resolver = get_compiled_resolver(action, "shared_operand", lookup, consumer="query_records")
+		assignment_resolver = get_compiled_resolver(action, "shared_operand", lookup, consumer="assignment")
 		self.assertIsNot(query_resolver, assignment_resolver)
 
 		# A cached Query Records resolver must not be returned to a condition
