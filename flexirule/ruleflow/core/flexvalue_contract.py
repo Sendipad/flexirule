@@ -181,8 +181,8 @@ def register_condition_resolver(
 ):
 	"""Register a reviewed resolver operation for canonical conditions.
 
-	validate_config must validate exact keys and nested FlexValues, carrying both the
-	current resolver depth and FlexValue depth into validate_flex_value(). resolve must
+	validate_config must validate exact keys and nested FlexValues, carrying the current
+	resolver depth, FlexValue depth, and consumer into validate_flex_value(). resolve must
 	be read-only, bounded, deterministic for a given context, and must not cache context
 	or resolved values. An operation may only be enabled when its permission policy is
 	"no_data_access"; database-backed resolvers require a separately reviewed adapter.

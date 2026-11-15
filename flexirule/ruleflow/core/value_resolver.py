@@ -16,7 +16,6 @@ from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, C
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_RESOLVER_REGISTRY,
-	invalidate_resolver_registry_fingerprint,
 	FRAPPE_VALUE_TYPES,
 	MAX_FLEXVALUE_DEPTH,
 	MAX_PATH_SEGMENTS,
