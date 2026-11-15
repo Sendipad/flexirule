@@ -406,6 +406,27 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			get_compiled_resolver(action, "shared_operand", lookup, consumer="condition")
 		self.assertEqual(raised.exception.code, "resolver_not_allowed")
 
+	def test_flexvalue_validation_rejects_empty_consumer(self):
+		with self.assertRaises(ConditionValidationError) as raised:
+			ValueResolver.validate_flex_value(
+				{"mode": "static", "value_type": "Int", "value": 1}, consumer=""
+			)
+		self.assertEqual(raised.exception.code, "invalid_consumer")
+
+	def test_resolver_registration_rejects_empty_consumer_allowlist(self):
+		with self.assertRaisesRegex(ValueError, "non-empty set"):
+			ValueResolver.register_resolver(
+				family="test_empty_consumer_allowlist",
+				operation="never_allowed",
+				label="Empty consumer allow-list",
+				output_type="Data",
+				config_schema={"type": "object"},
+				permission_policy="no_data_access",
+				validate_config=lambda cfg, path, scopes, rdepth, fdepth, consumer: None,
+				factory=lambda cfg, meta: StaticResolver("unexpected"),
+				supported_consumers=set(),
+			)
+
 	def test_condition_enabled_resolver_requires_no_data_access_policy(self):
 		with self.assertRaisesRegex(ValueError, "no_data_access"):
 			ValueResolver.register_resolver(

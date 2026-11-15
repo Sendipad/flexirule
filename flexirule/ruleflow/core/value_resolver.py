@@ -1145,6 +1145,16 @@ class ValueResolver:
 			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 		if not callable(validate_config) or not callable(factory):
 			raise ValueError("Resolver validator and factory must be callable")
+		if supported_consumers is None:
+			normalized_consumers = {"all"}
+		elif (
+			not isinstance(supported_consumers, (set, frozenset))
+			or not supported_consumers
+			or any(not isinstance(item, str) or not item.strip() for item in supported_consumers)
+		):
+			raise ValueError("Resolver supported_consumers must be a non-empty set of non-empty strings")
+		else:
+			normalized_consumers = set(supported_consumers)
 		if condition_operand_allowed and permission_policy != "no_data_access":
 			raise ValueError(
 				"Condition operands may only enable resolvers with permission_policy='no_data_access'"
@@ -1162,7 +1172,7 @@ class ValueResolver:
 			"permission_policy": permission_policy,
 			"required_capability": required_capability,
 			"condition_operand_allowed": bool(condition_operand_allowed),
-			"supported_consumers": set(supported_consumers or {"all"}),
+			"supported_consumers": normalized_consumers,
 			"validate_config": validate_config,
 			"factory": factory,
 			"resolve": lambda cfg, ctx: factory(cfg, None).resolve(ctx),
@@ -1204,6 +1214,8 @@ class ValueResolver:
 		flexvalue_depth: int = 0,
 	) -> str | None:
 		"""Validate canonical FlexValue structure and return known output type."""
+		if not isinstance(consumer, str) or not consumer.strip():
+			_fail("invalid_consumer", path, "FlexValue consumer must be a non-empty string")
 		if flexvalue_depth > MAX_FLEXVALUE_DEPTH:
 			_fail("flexvalue_depth_exceeded", path, "Nested FlexValue exceeds the configured depth limit")
 		if not isinstance(value, Mapping):
@@ -1841,7 +1853,7 @@ def get_compiled_resolver(action, key: str, value_payload: Any, *, consumer: str
 
 		return ValueResolver.compile(value_payload)
 
-	if not consumer or not isinstance(consumer, str):
+	if not isinstance(consumer, str) or not consumer.strip():
 		raise ValueError("A non-empty FlexValue consumer is required")
 
 	try:
