@@ -1442,7 +1442,7 @@ class ValueResolver:
 						resolver_depth=resolver_depth,
 						flexvalue_depth=flexvalue_depth + 1,
 					)
-					if output_type in {"list", "object", "Table", "Table MultiSelect"}:
+					if output_type in {"list", "object", "JSON", "Table", "Table MultiSelect"}:
 						_fail(
 							"invalid_template_value_type",
 							f"{segment_path}.value",
