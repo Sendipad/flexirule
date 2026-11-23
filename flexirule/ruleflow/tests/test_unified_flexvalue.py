@@ -80,6 +80,44 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		}
 		self.assertIsNone(ValueResolver.validate_flex_value(dynamic_source))
 
+		date_plus_hours = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "calculate",
+			"config": {
+				"source": {"mode": "static", "value_type": "Date", "value": "2026-11-23"},
+				"offset_value": 2,
+				"offset_unit": "hours",
+			},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(date_plus_hours), "Datetime")
+
+		boundary_datetime = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "boundary",
+			"config": {
+				"source": {"mode": "static", "value_type": "Datetime", "value": "2026-11-23T10:30:00"},
+			},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(boundary_datetime), "Datetime")
+
+		empty_boundary = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "boundary",
+			"config": {},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(empty_boundary), "null")
+
+		empty_system_context = {
+			"mode": "resolver",
+			"family": "system_context",
+			"operation": "get",
+			"config": {"sys_token": None},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(empty_system_context), "null")
+
 	def test_canonical_variable_resolution(self):
 		payload = {
 			"mode": "variable",
