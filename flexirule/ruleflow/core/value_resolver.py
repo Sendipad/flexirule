@@ -1937,6 +1937,46 @@ def _register_builtins():
 					f"Invalid path segment in {field_name}: '{seg}'",
 				)
 
+	# Output type inference is intentionally conservative: unknown variable paths
+	# return None rather than advertising a type that runtime values may violate.
+	def _nested_output_type(source):
+		if not isinstance(source, dict):
+			return None
+		mode = source.get("mode")
+		if mode == "static":
+			return source.get("value_type")
+		if mode == "resolver":
+			entry = ValueResolver.REGISTRY.get((source.get("family"), source.get("operation")))
+			if not entry:
+				return None
+			resolver = entry.get("output_type_resolver")
+			return resolver(source.get("config") or {}) if resolver else entry.get("output_type")
+		return None
+
+	def _output_dt_current(cfg):
+		token = (cfg.get("token") or "date").lower()
+		return "Datetime" if token in {"datetime", "now"} else ("Time" if token == "time" else "Date")
+
+	def _output_dt_calculate(cfg):
+		if cfg.get("source") is not None:
+			return _nested_output_type(cfg.get("source"))
+		base_type = cfg.get("base_type")
+		if base_type in {"current_datetime", "now"}:
+			return "Datetime"
+		if base_type == "current_time":
+			return "Time"
+		if cfg.get("base_field") or base_type == "doc_field":
+			return None
+		return "Date"
+
+	def _output_dt_boundary(cfg):
+		source = cfg.get("source")
+		if source is None:
+			source = cfg.get("base_field")
+		if source is None:
+			return "Date"
+		return _nested_output_type(source)
+
 	# date_time.current
 	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
 		_exact_keys(cfg, set(), {"token"}, path)
@@ -1953,6 +1993,7 @@ def _register_builtins():
 		permission_policy="no_data_access",
 		validate_config=_val_dt_current,
 		factory=lambda cfg, meta: DateCurrentResolver(cfg.get("token") or "date"),
+		output_type_resolver=_output_dt_current,
 		condition_operand_allowed=True,
 	)
 
@@ -2031,6 +2072,7 @@ def _register_builtins():
 			offset_sign=cfg.get("offset_sign", "+"),
 			source=cfg.get("source"),
 		),
+		output_type_resolver=_output_dt_calculate,
 		condition_operand_allowed=True,
 	)
 
@@ -2186,6 +2228,7 @@ def _register_builtins():
 			source=cfg.get("source") or cfg.get("base_field"),
 			boundary_type=cfg.get("boundary_type", "start_of_month"),
 		),
+		output_type_resolver=_output_dt_boundary,
 		condition_operand_allowed=True,
 	)
 
@@ -2492,6 +2535,7 @@ def _register_builtins():
 			sys_token=cfg.get("sys_token", "user"),
 			sys_role=cfg.get("sys_role", ""),
 		),
+		output_type_resolver=lambda cfg: "boolean" if cfg.get("sys_token", "user") == "role_check" else "Data",
 		condition_operand_allowed=True,
 	)
 
