@@ -65,7 +65,14 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		self.assertEqual(ValueResolver.validate_flex_value(current_time), "Time")
 		self.assertEqual(ValueResolver.validate_flex_value(role_check), "Check")
 
-		for unit, expected_type in (("days", "Int"), ("seconds", "Int"), ("months", "Int"), ("years", "Int"), ("minutes", "Float"), ("hours", "Float")):
+		for unit, expected_type in (
+			("days", "Int"),
+			("seconds", "Int"),
+			("months", "Int"),
+			("years", "Int"),
+			("minutes", "Float"),
+			("hours", "Float"),
+		):
 			diff_payload = {
 				"mode": "resolver",
 				"family": "date_time",
