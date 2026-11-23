@@ -480,6 +480,44 @@ def _known_fieldtype_check(
 		)
 
 
+
+def _known_right_fieldtype_check(operator_id: str, fieldtype: str | None, path: str) -> None:
+	"""Validate metadata-backed right operands against the operator's right domain."""
+	if not fieldtype:
+		return
+	spec = OPERATOR_REGISTRY[operator_id]
+	if spec.fieldtypes is not None and fieldtype not in spec.fieldtypes:
+		_fail(
+			"fieldtype_not_supported",
+			f"{path}.right",
+			"Operator is not supported for the right operand's Fieldtype",
+		)
+	known_types = FIELD_TYPE_VALUE_TYPES.get(fieldtype)
+	if known_types and not any(value_type in spec.right_types for value_type in known_types):
+		_fail(
+			"operand_type_mismatch",
+			f"{path}.right",
+			"Right operand Fieldtype is incompatible with this operator",
+		)
+
+
+def _known_fieldtype_pair_check(
+	operator_id: str, left_fieldtype: str | None, right_fieldtype: str | None, path: str
+) -> None:
+	"""Reject incompatible metadata-backed field pairs even when both are variables."""
+	if not left_fieldtype or not right_fieldtype:
+		return
+	left_types = set(FIELD_TYPE_VALUE_TYPES.get(left_fieldtype, ()))
+	right_types = set(FIELD_TYPE_VALUE_TYPES.get(right_fieldtype, ()))
+	if not left_types or not right_types:
+		return
+	if not left_types.intersection(right_types):
+		_fail(
+			"operand_type_mismatch",
+			f"{path}.right",
+			"Right operand Fieldtype is incompatible with the left operand's declared Fieldtype",
+		)
+
 def validate_condition_node(
 	node: Any,
 	*,
@@ -601,14 +639,27 @@ def _validate_node(
 			if operator_id in {"in", "not_in"}:
 				_validate_membership_items(left_type, node.get("right"), path)
 		left_value = node.get("left")
+		left_fieldtype = None
 		if isinstance(left_value, Mapping) and left_value.get("mode") == "variable":
 			path_value = left_value.get("path") or {}
 			scope = path_value.get("scope")
 			if not isinstance(scope, str):
 				_fail("invalid_variable_scope", f"{path}.left.path.scope", "Variable scope must be a string")
 			segments = tuple(path_value.get("segments") or ())
-			fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
-			_known_fieldtype_check(operator_id, left_value, fieldtype, path, node.get("right"), right_type)
+			left_fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
+			_known_fieldtype_check(operator_id, left_value, left_fieldtype, path, node.get("right"), right_type)
+
+		right_value = node.get("right")
+		right_fieldtype = None
+		if spec.arity == 2 and isinstance(right_value, Mapping) and right_value.get("mode") == "variable":
+			path_value = right_value.get("path") or {}
+			scope = path_value.get("scope")
+			if not isinstance(scope, str):
+				_fail("invalid_variable_scope", f"{path}.right.path.scope", "Variable scope must be a string")
+			segments = tuple(path_value.get("segments") or ())
+			right_fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
+			_known_right_fieldtype_check(operator_id, right_fieldtype, path)
+			_known_fieldtype_pair_check(operator_id, left_fieldtype, right_fieldtype, path)
 		if operator_id in {"is_submittable", "has_field"}:
 			# Metadata checks accept explicit DocType names only; no arbitrary objects.
 			for operand, operand_path in ((node.get("left"), f"{path}.left"),):
