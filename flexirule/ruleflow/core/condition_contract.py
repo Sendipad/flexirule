@@ -479,6 +479,7 @@ def _known_fieldtype_check(
 			"Right operand type is incompatible with the left field's declared Fieldtype",
 		)
 
+
 def _known_right_fieldtype_check(operator_id: str, fieldtype: str | None, path: str) -> None:
 	"""Validate metadata-backed right operands against the operator's right domain."""
 	if not fieldtype:
