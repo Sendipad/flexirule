@@ -8,6 +8,7 @@ from unittest.mock import patch
 import frappe
 
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
+from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.value_resolver import (
 	CollectionResolver,
 	ValueResolver,
@@ -113,6 +114,34 @@ class TestCollectionResolver(unittest.TestCase):
 			res_find = CollectionResolver(source="doc.items", operation="find", condition=cond)
 			find_match = res_find.resolve(self.mock_context)
 			self.assertEqual(first_match, find_match)
+
+	def test_last_operation_returns_last_matching_row(self):
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res = CollectionResolver(source="doc.items", operation="last", condition=cond)
+			last_match = res.resolve(self.mock_context)
+		self.assertIsNotNone(last_match)
+		self.assertEqual(last_match["item_code"], "ITEM-A")
+		self.assertEqual(last_match["qty"], 30)
+
+	def test_last_operation_without_match_returns_none(self):
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Missing"}}]
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res = CollectionResolver(source="doc.items", operation="last", condition=cond)
+			self.assertIsNone(res.resolve(self.mock_context))
+
+	def test_canonical_condition_consumer_rejects_legacy_collection_predicate(self):
+		legacy_condition = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 20}}]
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value(
+				{
+					"mode": "resolver",
+					"family": "collection",
+					"operation": "first",
+					"config": {"source": "vars.custom_list", "condition": legacy_condition},
+				},
+				consumer="condition",
+			)
 
 	def test_filter_operation(self):
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
