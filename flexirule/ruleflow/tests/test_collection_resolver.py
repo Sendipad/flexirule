@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import frappe
 
-from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.value_resolver import (
 	CollectionResolver,
 	ValueResolver,
