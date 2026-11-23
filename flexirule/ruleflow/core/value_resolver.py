@@ -511,10 +511,8 @@ class CollectionResolver(CompiledResolver):
 		operation: str = "any",
 		condition: dict | list | None = None,
 		target_field: str | None = None,
-		consumer: str = "all",
 	):
 		self.source = source
-		self.consumer = consumer
 		self.operation = (operation or "any").lower()
 		if self.operation == "find":
 			self.operation = "first"  # Map UI alias directly to first matching row
@@ -531,12 +529,6 @@ class CollectionResolver(CompiledResolver):
 			if is_canonical:
 				validate_condition_node(canonical_node)
 				self._canonical_condition = canonical_node
-			elif self.consumer == "condition":
-				raise ConditionValidationError(
-					"invalid_condition_node",
-					"$.config.condition",
-					"Canonical condition consumers require a canonical collection predicate",
-				)
 			else:
 				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
@@ -1967,6 +1959,8 @@ def _register_builtins():
 			return "Time"
 		if cfg.get("base_field") or base_type == "doc_field":
 			return None
+		if cfg.get("offset_unit") in {"hours", "minutes", "seconds"}:
+			return "Datetime"
 		return "Date"
 
 	def _output_dt_boundary(cfg):
@@ -2471,7 +2465,7 @@ def _register_builtins():
 		)
 		if cfg.get("source"):
 			_validate_path_str(str(cfg["source"]), "source", path, allowed_scopes)
-		if cfg.get("condition"):
+		if cfg.get("condition") is not None:
 			from flexirule.ruleflow.core.condition_contract import validate_condition_node
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
@@ -2492,7 +2486,6 @@ def _register_builtins():
 				operation=op_name,
 				condition=cfg.get("condition"),
 				target_field=cfg.get("target_field") or cfg.get("agg_field"),
-				consumer=consumer,
 			)
 
 		return _factory
