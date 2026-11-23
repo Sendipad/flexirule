@@ -511,8 +511,10 @@ class CollectionResolver(CompiledResolver):
 		operation: str = "any",
 		condition: dict | list | None = None,
 		target_field: str | None = None,
+		consumer: str = "all",
 	):
 		self.source = source
+		self.consumer = consumer
 		self.operation = (operation or "any").lower()
 		if self.operation == "find":
 			self.operation = "first"  # Map UI alias directly to first matching row
@@ -529,6 +531,12 @@ class CollectionResolver(CompiledResolver):
 			if is_canonical:
 				validate_condition_node(canonical_node)
 				self._canonical_condition = canonical_node
+			elif self.consumer == "condition":
+				raise ConditionValidationError(
+					"invalid_condition_node",
+					"$.config.condition",
+					"Canonical condition consumers require a canonical collection predicate",
+				)
 			else:
 				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
@@ -727,6 +735,12 @@ class CollectionResolver(CompiledResolver):
 
 		if op == "first":
 			for r in rows:
+				if _matches(r):
+					return r
+			return None
+
+		if op == "last":
+			for r in reversed(rows):
 				if _matches(r):
 					return r
 			return None
@@ -1115,6 +1129,7 @@ class ValueResolver:
 		permission_policy: str,
 		validate_config: Callable[[dict, str, set[str], int, int, str], None],
 		factory: Callable[[dict, Any], CompiledResolver],
+		output_type_resolver: Callable[[dict], str | None] | None = None,
 		supported_consumers: set[str] | None = None,
 		condition_operand_allowed: bool = False,
 		required_capability: str = "condition_operand",
@@ -1145,6 +1160,8 @@ class ValueResolver:
 			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 		if not callable(validate_config) or not callable(factory):
 			raise ValueError("Resolver validator and factory must be callable")
+		if output_type_resolver is not None and not callable(output_type_resolver):
+			raise ValueError("Resolver output_type_resolver must be callable")
 		if supported_consumers is None:
 			normalized_consumers = {"all"}
 		elif (
@@ -1168,6 +1185,7 @@ class ValueResolver:
 			"operation": operation,
 			"label": label,
 			"output_type": output_type,
+			"output_type_resolver": output_type_resolver,
 			"config_schema": config_schema_copy,
 			"permission_policy": permission_policy,
 			"required_capability": required_capability,
@@ -1193,6 +1211,7 @@ class ValueResolver:
 				"operation": item["operation"],
 				"label": item["label"],
 				"output_type": item["output_type"],
+				"output_type_is_dynamic": item.get("output_type_resolver") is not None,
 				"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
 				"permission_policy": item["permission_policy"],
 				"required_capability": item["required_capability"],
@@ -1363,7 +1382,20 @@ class ValueResolver:
 			entry["validate_config"](
 				config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1, consumer
 			)
-			return entry["output_type"]
+			output_type = (
+				entry["output_type_resolver"](config)
+				if entry.get("output_type_resolver") is not None
+				else entry["output_type"]
+			)
+			if output_type is not None and output_type not in VALUE_TYPES:
+				_fail("invalid_resolver_output_type", path, "Resolver produced an invalid output type contract")
+			if declared_vt and output_type is not None and declared_vt != output_type:
+				_fail(
+					"resolver_output_type_mismatch",
+					f"{path}.value_type",
+					"Declared resolver value_type does not match its configuration-derived output type",
+				)
+			return output_type
 
 		if mode == "template":
 			_exact_keys(value, {"mode", "segments"}, set(), path)
@@ -2401,6 +2433,12 @@ def _register_builtins():
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			is_canonical, canonical_node = detect_canonical_condition_payload(cfg["condition"])
+			if consumer == "condition" and (not is_canonical or not canonical_node):
+				_fail(
+					"invalid_condition_node",
+					f"{path}.condition",
+					"Canonical condition consumers require a canonical collection predicate",
+				)
 			if is_canonical and canonical_node:
 				validate_condition_node(canonical_node)
 
@@ -2411,6 +2449,7 @@ def _register_builtins():
 				operation=op_name,
 				condition=cfg.get("condition"),
 				target_field=cfg.get("target_field") or cfg.get("agg_field"),
+				consumer=consumer,
 			)
 
 		return _factory
