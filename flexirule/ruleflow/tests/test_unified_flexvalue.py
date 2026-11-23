@@ -80,7 +80,7 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		}
 		self.assertIsNone(ValueResolver.validate_flex_value(dynamic_source))
 
-		date_plus_hours = {
+		date_plus_hours: dict[str, Any] = {
 			"mode": "resolver",
 			"family": "date_time",
 			"operation": "calculate",
