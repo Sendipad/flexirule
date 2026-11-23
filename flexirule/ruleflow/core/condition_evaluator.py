@@ -661,7 +661,19 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 			else:
 				resolved = entry["resolve"](_thaw_json(frozen_config), context)
 			actual_type = _runtime_value_type(resolved, path)
-			declared_out = entry["output_type"]
+			output_type_resolver = entry.get("output_type_resolver")
+			declared_out = (
+				output_type_resolver(_thaw_json(frozen_config))
+				if callable(output_type_resolver)
+				else entry["output_type"]
+			)
+			# Some resolver operations cannot know their precise Frappe fieldtype
+			# until a runtime field path is resolved. Their structural validation
+			# still applies, and _runtime_value_type has already rejected unsupported
+			# Python values; do not enforce a misleading base type in that case.
+			if declared_out is None:
+				return resolved
+
 			if declared_out in {
 				"Data",
 				"Small Text",
@@ -671,24 +683,37 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 				"Select",
 				"Link",
 				"Dynamic Link",
+				"Password",
+				"Attach",
+				"Attach Image",
+				"Barcode",
+				"Color",
+				"Phone",
+				"Signature",
 			}:
-				expected_out = "string"
-			elif declared_out in {"Int", "Check"}:
-				expected_out = (
-					"integer"
-					if actual_type == "integer"
-					else ("boolean" if declared_out == "Check" else "integer")
-				)
-			elif declared_out in {"Float", "Currency", "Percent"}:
-				expected_out = "decimal"
-			elif declared_out in {"Table", "Table MultiSelect"}:
-				expected_out = "list"
+				expected_types = {"string"}
+			elif declared_out in {"Int", "Rating", "Duration", "integer"}:
+				expected_types = {"integer"}
+			elif declared_out == "Check":
+				expected_types = {"integer", "boolean"}
+			elif declared_out in {"Float", "Currency", "Percent", "decimal"}:
+				expected_types = {"decimal"}
+			elif declared_out in {"Date", "date"}:
+				expected_types = {"date"}
+			elif declared_out in {"Datetime", "datetime"}:
+				expected_types = {"datetime"}
+			elif declared_out in {"Time", "time"}:
+				expected_types = {"time"}
+			elif declared_out in {"Table", "Table MultiSelect", "list"}:
+				expected_types = {"list"}
 			elif declared_out == "JSON":
-				expected_out = actual_type
+				expected_types = {actual_type}
+			elif declared_out in {"boolean", "object", "null", "string"}:
+				expected_types = {declared_out}
 			else:
-				expected_out = declared_out
+				expected_types = {declared_out}
 
-			if actual_type != expected_out and actual_type != declared_out:
+			if actual_type not in expected_types:
 				raise ConditionEvaluationError(
 					"resolver_output_type_mismatch",
 					path,
