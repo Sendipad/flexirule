@@ -92,6 +92,24 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		}
 		self.assertEqual(ValueResolver.validate_flex_value(date_plus_hours), "Datetime")
 
+		date_plus_zero_hours = {
+			**date_plus_hours,
+			"config": {**date_plus_hours["config"], "offset_value": 0},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(date_plus_zero_hours), "Date")
+
+		date_plus_dynamic_hours = {
+			**date_plus_hours,
+			"config": {
+				**date_plus_hours["config"],
+				"offset_value": {
+					"mode": "variable",
+					"path": {"scope": "doc", "segments": ["offset"]},
+				},
+			},
+		}
+		self.assertIsNone(ValueResolver.validate_flex_value(date_plus_dynamic_hours))
+
 		boundary_datetime = {
 			"mode": "resolver",
 			"family": "date_time",
@@ -101,6 +119,16 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			},
 		}
 		self.assertEqual(ValueResolver.validate_flex_value(boundary_datetime), "Datetime")
+
+		boundary_unknown_text = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "boundary",
+			"config": {
+				"source": {"mode": "static", "value_type": "Data", "value": "2026-11-23"},
+			},
+		}
+		self.assertIsNone(ValueResolver.validate_flex_value(boundary_unknown_text))
 
 		empty_boundary = {
 			"mode": "resolver",
