@@ -1956,9 +1956,18 @@ def _register_builtins():
 		return "Datetime" if token in {"datetime", "now"} else ("Time" if token == "time" else "Date")
 
 	def _output_dt_calculate(cfg):
-		if cfg.get("source") is not None:
-			return _nested_output_type(cfg.get("source"))
+		source_type = _nested_output_type(cfg.get("source")) if cfg.get("source") is not None else None
 		base_type = cfg.get("base_type")
+		if source_type is not None:
+			if source_type in {"Date", "date"} and cfg.get("offset_unit") in {
+				"hours",
+				"minutes",
+				"seconds",
+			}:
+				return "Datetime"
+			return source_type
+		if cfg.get("source") is not None:
+			return None
 		if base_type in {"current_datetime", "now"}:
 			return "Datetime"
 		if base_type == "current_time":
@@ -1975,7 +1984,8 @@ def _register_builtins():
 			source = cfg.get("base_field")
 		if source is None:
 			return "Date"
-		return _nested_output_type(source)
+		source_type = _nested_output_type(source)
+		return None if source_type in {"Time", "time"} else source_type
 
 	# date_time.current
 	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
