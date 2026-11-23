@@ -75,6 +75,11 @@ class TestCanonicalConditionContract(unittest.TestCase):
 			doctype="Test Doc",
 			scope_doctypes={"doc": "Test Doc"},
 		)
+		validate_condition_node(
+			comparison("length_eq", "status", "quantity"),
+			doctype="Test Doc",
+			scope_doctypes={"doc": "Test Doc"},
+		)
 
 	def test_shared_valid_root_variants(self):
 		for name, node in self.fixtures["valid"].items():
