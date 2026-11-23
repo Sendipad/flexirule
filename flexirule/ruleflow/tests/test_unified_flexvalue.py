@@ -63,7 +63,16 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		}
 		self.assertEqual(ValueResolver.validate_flex_value(current_datetime), "Datetime")
 		self.assertEqual(ValueResolver.validate_flex_value(current_time), "Time")
-		self.assertEqual(ValueResolver.validate_flex_value(role_check), "boolean")
+		self.assertEqual(ValueResolver.validate_flex_value(role_check), "Check")
+
+		for unit, expected_type in (("days", "Int"), ("seconds", "Int"), ("months", "Int"), ("years", "Int"), ("minutes", "Float"), ("hours", "Float")):
+			diff_payload = {
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "diff",
+				"config": {"diff_unit": unit},
+			}
+			self.assertEqual(ValueResolver.validate_flex_value(diff_payload), expected_type)
 
 		mismatched = {**current_datetime, "value_type": "Date"}
 		with self.assertRaises(ConditionValidationError) as raised:
@@ -145,6 +154,110 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			"config": {"sys_token": None},
 		}
 		self.assertEqual(ValueResolver.validate_flex_value(empty_system_context), "null")
+
+	def test_frappe_native_resolver_output_types_match_runtime_values(self):
+		from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+		for token in ("date", "datetime", "time"):
+			condition = {
+				"type": "comparison",
+				"operator": "is_set",
+				"left": {
+					"mode": "resolver",
+					"family": "date_time",
+					"operation": "current",
+					"config": {"token": token},
+				},
+			}
+			with self.subTest(token=token):
+				self.assertTrue(evaluate_condition(condition, {}))
+
+		minute_difference = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "diff",
+			"config": {
+				"start_source": {
+					"mode": "static",
+					"value_type": "Datetime",
+					"value": "2026-11-23T10:00:00",
+				},
+				"end_source": {
+					"mode": "static",
+					"value_type": "Datetime",
+					"value": "2026-11-23T11:30:00",
+				},
+				"diff_unit": "minutes",
+			},
+		}
+		condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": minute_difference,
+			"right": {"mode": "static", "value_type": "Float", "value": 60.0},
+		}
+		self.assertTrue(evaluate_condition(condition, {}))
+
+		day_difference = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "diff",
+			"config": {
+				"start_source": {
+					"mode": "static",
+					"value_type": "Date",
+					"value": "2026-11-23",
+				},
+				"end_source": {
+					"mode": "static",
+					"value_type": "Date",
+					"value": "2026-11-25",
+				},
+				"diff_unit": "days",
+			},
+		}
+		condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": day_difference,
+			"right": {"mode": "static", "value_type": "Int", "value": 1},
+		}
+		self.assertTrue(evaluate_condition(condition, {}))
+
+	def test_nested_canonical_date_resolvers_compile_template_sources(self):
+		extract = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "extract",
+			"config": {
+				"source": {
+					"mode": "template",
+					"segments": [{"type": "text", "value": "2026-11-23"}],
+				},
+				"component": "year",
+			},
+		}
+		compiled_extract = ValueResolver.compile_flex_value(extract, consumer="condition")
+		self.assertEqual(compiled_extract.resolve({}), 2026)
+
+		calculate = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "calculate",
+			"config": {
+				"source": {
+					"mode": "template",
+					"segments": [{"type": "text", "value": "2026-11-23"}],
+				},
+				"offset_value": {
+					"mode": "template",
+					"segments": [{"type": "text", "value": "2"}],
+				},
+				"offset_unit": "days",
+			},
+		}
+		compiled_calculate = ValueResolver.compile_flex_value(calculate, consumer="condition")
+		self.assertEqual(str(compiled_calculate.resolve({}))[:10], "2026-11-25")
 
 	def test_canonical_variable_resolution(self):
 		payload = {
