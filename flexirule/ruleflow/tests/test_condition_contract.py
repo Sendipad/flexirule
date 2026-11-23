@@ -7,6 +7,10 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import frappe
 from typing import Any
 
 from flexirule.ruleflow.core.condition_contract import (
@@ -28,6 +32,43 @@ class TestCanonicalConditionContract(unittest.TestCase):
 	@classmethod
 	def setUpClass(cls):
 		cls.fixtures = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+	@patch("frappe.get_meta")
+	def test_right_variable_fieldtype_is_validated(self, mock_get_meta):
+		fields = {
+			"due_date": SimpleNamespace(fieldtype="Date"),
+			"event_time": SimpleNamespace(fieldtype="Datetime"),
+			"status": SimpleNamespace(fieldtype="Select"),
+			"quantity": SimpleNamespace(fieldtype="Int"),
+			"amount": SimpleNamespace(fieldtype="Float"),
+		}
+		mock_get_meta.return_value = SimpleNamespace(get_field=lambda name: fields.get(name))
+
+		def comparison(operator, left, right):
+			return {
+				"type": "comparison",
+				"operator": operator,
+				"left": {"mode": "variable", "path": {"scope": "doc", "segments": [left]}},
+				"right": {"mode": "variable", "path": {"scope": "doc", "segments": [right]}},
+			}
+
+		with self.assertRaises(ConditionValidationError):
+			validate_condition_node(
+				comparison("gt", "due_date", "status"),
+				doctype="Test Doc",
+				scope_doctypes={"doc": "Test Doc"},
+			)
+		with self.assertRaises(ConditionValidationError):
+			validate_condition_node(
+				comparison("gt", "due_date", "event_time"),
+				doctype="Test Doc",
+				scope_doctypes={"doc": "Test Doc"},
+			)
+		validate_condition_node(
+			comparison("gt", "quantity", "amount"),
+			doctype="Test Doc",
+			scope_doctypes={"doc": "Test Doc"},
+		)
 
 	def test_shared_valid_root_variants(self):
 		for name, node in self.fixtures["valid"].items():
