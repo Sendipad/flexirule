@@ -1955,18 +1955,32 @@ def _register_builtins():
 		token = (cfg.get("token") or "date").lower()
 		return "Datetime" if token in {"datetime", "now"} else ("Time" if token == "time" else "Date")
 
+	def _known_offset(cfg):
+		raw_offset = cfg.get("offset_value", 0)
+		if isinstance(raw_offset, dict):
+			if raw_offset.get("mode") != "static":
+				return None
+			raw_offset = raw_offset.get("value")
+		elif isinstance(raw_offset, str) and raw_offset.startswith(("doc.", "vars.")):
+			return None
+		try:
+			return float(raw_offset) if raw_offset is not None else 0.0
+		except (TypeError, ValueError):
+			return 0.0
+
 	def _output_dt_calculate(cfg):
 		source_type = _nested_output_type(cfg.get("source")) if cfg.get("source") is not None else None
 		base_type = cfg.get("base_type")
-		if source_type is not None:
-			if source_type in {"Date", "date"} and cfg.get("offset_unit") in {
-				"hours",
-				"minutes",
-				"seconds",
-			}:
-				return "Datetime"
-			return source_type
 		if cfg.get("source") is not None:
+			if source_type in {"Date", "date"}:
+				if cfg.get("offset_unit") not in {"hours", "minutes", "seconds"}:
+					return "Date"
+				offset = _known_offset(cfg)
+				return "Datetime" if offset and offset != 0 else ("Date" if offset == 0 else None)
+			if source_type in {"Datetime", "datetime"}:
+				return "Datetime"
+			if source_type in {"Time", "time"}:
+				return "Time"
 			return None
 		if base_type in {"current_datetime", "now"}:
 			return "Datetime"
@@ -1978,8 +1992,13 @@ def _register_builtins():
 			return None
 		if base_type is None:
 			return "null"
-		if cfg.get("offset_unit") in {"hours", "minutes", "seconds"}:
-			return "Datetime"
+		if base_type in {"today", "current_date"} and cfg.get("offset_unit") in {
+			"hours",
+			"minutes",
+			"seconds",
+		}:
+			offset = _known_offset(cfg)
+			return "Datetime" if offset and offset != 0 else ("Date" if offset == 0 else None)
 		return "Date"
 
 	def _output_dt_boundary(cfg):
@@ -1989,7 +2008,11 @@ def _register_builtins():
 		if source is None:
 			return "null"
 		source_type = _nested_output_type(source)
-		return None if source_type in {"Time", "time"} else source_type
+		if source_type in {"Date", "date"}:
+			return "Date"
+		if source_type in {"Datetime", "datetime"}:
+			return "Datetime"
+		return None
 
 	# date_time.current
 	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth, consumer):
