@@ -274,6 +274,7 @@ def resolver_contract_dto() -> list[dict[str, Any]]:
 			"operation": item["operation"],
 			"label": item["label"],
 			"output_type": item["output_type"],
+			"output_type_is_dynamic": item.get("output_type_resolver") is not None,
 			"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
 			"permission_policy": item["permission_policy"],
 			"required_capability": item["required_capability"],
