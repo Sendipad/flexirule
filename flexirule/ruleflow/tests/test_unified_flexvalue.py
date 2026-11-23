@@ -259,6 +259,26 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		compiled_calculate = ValueResolver.compile_flex_value(calculate, consumer="condition")
 		self.assertEqual(str(compiled_calculate.resolve({}))[:10], "2026-11-25")
 
+		# A row-returning collection resolver has a JSON/object output and must
+		# not be accepted as a scalar text-template segment.
+		record_template = {
+			"mode": "template",
+			"segments": [
+				{
+					"type": "value",
+					"value": {
+						"mode": "resolver",
+						"family": "collection",
+						"operation": "first",
+						"config": {"source": "vars.custom_list"},
+					},
+				}
+			],
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			ValueResolver.validate_flex_value(record_template, consumer="condition")
+		self.assertEqual(raised.exception.code, "invalid_template_value_type")
+
 	def test_canonical_variable_resolution(self):
 		payload = {
 			"mode": "variable",
