@@ -504,6 +504,8 @@ def _known_fieldtype_pair_check(
 	operator_id: str, left_fieldtype: str | None, right_fieldtype: str | None, path: str
 ) -> None:
 	"""Reject incompatible metadata-backed field pairs even when both are variables."""
+	if operator_id not in {"eq", "ne", "gt", "gte", "lt", "lte"}:
+		return
 	if not left_fieldtype or not right_fieldtype:
 		return
 	left_types = set(FIELD_TYPE_VALUE_TYPES.get(left_fieldtype, ()))
