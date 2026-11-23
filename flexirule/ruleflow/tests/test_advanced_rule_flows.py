@@ -1,8 +1,10 @@
 import json
+from typing import Any
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.action_handlers.sub_rule import SubRuleVarsOverlay
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 
@@ -536,6 +538,31 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			"loop": loop_rule,
 			"switch": switch_rule,
 		}
+
+	def test_sub_rule_vars_overlay_isolates_nested_mutable_values(self):
+		parent_vars: dict[str, Any] = {
+			"settings": {"nested": {"enabled": True}},
+			"rows": [{"values": [1, 2]}],
+			"tags": {"original"},
+		}
+		overlay = SubRuleVarsOverlay(parent_vars)
+
+		overlay["settings"]["nested"]["enabled"] = False
+		overlay["rows"][0]["values"].append(3)
+		overlay["tags"].add("child")
+
+		self.assertTrue(parent_vars["settings"]["nested"]["enabled"])
+		self.assertEqual(parent_vars["rows"][0]["values"], [1, 2])
+		self.assertEqual(parent_vars["tags"], {"original"})
+		self.assertEqual(overlay.export_mutations()["rows"][0]["values"], [1, 2, 3])
+
+	def test_sub_rule_vars_overlay_preserves_read_only_object_identity(self):
+		class DocumentLike:
+			pass
+
+		doc = DocumentLike()
+		overlay = SubRuleVarsOverlay({"doc_ref": doc})
+		self.assertIs(overlay["doc_ref"], doc)
 
 	def test_suite_fixtures_cover_all_current_action_types(self):
 		scenarios = self._build_scenarios()

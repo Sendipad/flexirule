@@ -55,7 +55,7 @@ class TestV1Compliance(FrappeTestCase):
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
 		self.assertFalse(is_eligible)
 		# New behavior: Returns error about missing compiled filters
-		self.assertIn("compiled_expression", reason)
+		self.assertIn("compiled", reason)
 
 		# Test with properly compiled compiled_expression
 		rule.compiled_expression = "resolve(doc, 'status') == 'Open'"

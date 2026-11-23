@@ -2,9 +2,12 @@
 # For license information, please see license.txt
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import frappe
 
+from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.value_resolver import (
 	CollectionResolver,
@@ -25,6 +28,42 @@ class TestCollectionResolver(unittest.TestCase):
 			"vars": {"custom_list": [{"code": "X", "val": 1}, {"code": "Y", "val": 2}]},
 		}
 
+		self.parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Item")
+				if fieldname == "items"
+				else None
+			)
+		)
+
+		def child_get_field(fieldname):
+			if fieldname in ("qty", "rate"):
+				return SimpleNamespace(fieldname=fieldname, fieldtype="Float")
+			if fieldname in ("item_code", "category"):
+				return SimpleNamespace(fieldname=fieldname, fieldtype="Data")
+			return None
+
+		self.child_meta = SimpleNamespace(get_field=child_get_field)
+		self.mock_context = {
+			"doctype": "Test Order",
+			"doc": frappe._dict(
+				{
+					"doctype": "Test Order",
+					"name": "SO-0001",
+					"status": "Draft",
+					"items": self.items,
+				}
+			),
+			"vars": {"custom_list": [{"code": "X", "val": 1}, {"code": "Y", "val": 2}]},
+		}
+
+	def _fake_get_meta(self, dt):
+		if dt == "Test Order":
+			return self.parent_meta
+		if dt == "Test Item":
+			return self.child_meta
+		raise ValueError(f"Unknown DocType {dt}")
+
 	def test_count_operation(self):
 		# Unfiltered count
 		res_unfiltered = CollectionResolver(source="doc.items", operation="count")
@@ -32,50 +71,123 @@ class TestCollectionResolver(unittest.TestCase):
 
 		# Filtered count (qty > 20)
 		cond = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 20}}]
-		res_filtered = CollectionResolver(source="doc.items", operation="count", condition=cond)
-		self.assertEqual(res_filtered.resolve(self.context), 3)
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_filtered = CollectionResolver(source="doc.items", operation="count", condition=cond)
+			self.assertEqual(res_filtered.resolve(self.mock_context), 3)
 
 	def test_any_operation(self):
 		# True case (qty > 100)
 		cond_true = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 100}}]
-		res_true = CollectionResolver(source="doc.items", operation="any", condition=cond_true)
-		self.assertTrue(res_true.resolve(self.context))
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_true = CollectionResolver(source="doc.items", operation="any", condition=cond_true)
+			self.assertTrue(res_true.resolve(self.mock_context))
 
 		# False case (qty > 500)
 		cond_false = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 500}}]
-		res_false = CollectionResolver(source="doc.items", operation="any", condition=cond_false)
-		self.assertFalse(res_false.resolve(self.context))
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_false = CollectionResolver(source="doc.items", operation="any", condition=cond_false)
+			self.assertFalse(res_false.resolve(self.mock_context))
 
 	def test_all_operation(self):
 		# True case (qty > 0)
 		cond_true = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 0}}]
-		res_true = CollectionResolver(source="doc.items", operation="all", condition=cond_true)
-		self.assertTrue(res_true.resolve(self.context))
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_true = CollectionResolver(source="doc.items", operation="all", condition=cond_true)
+			self.assertTrue(res_true.resolve(self.mock_context))
 
 		# False case (qty > 20)
 		cond_false = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 20}}]
-		res_false = CollectionResolver(source="doc.items", operation="all", condition=cond_false)
-		self.assertFalse(res_false.resolve(self.context))
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_false = CollectionResolver(source="doc.items", operation="all", condition=cond_false)
+			self.assertFalse(res_false.resolve(self.mock_context))
 
 	def test_first_and_find_alias(self):
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Software"}}]
 
-		res_first = CollectionResolver(source="doc.items", operation="first", condition=cond)
-		first_match = res_first.resolve(self.context)
-		self.assertIsNotNone(first_match)
-		self.assertEqual(first_match["item_code"], "ITEM-B")
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_first = CollectionResolver(source="doc.items", operation="first", condition=cond)
+			first_match = res_first.resolve(self.mock_context)
+			self.assertIsNotNone(first_match)
+			self.assertEqual(first_match["item_code"], "ITEM-B")
 
-		# 'find' operation must behave identically to 'first'
-		res_find = CollectionResolver(source="doc.items", operation="find", condition=cond)
-		find_match = res_find.resolve(self.context)
-		self.assertEqual(first_match, find_match)
+			# 'find' operation must behave identically to 'first'
+			res_find = CollectionResolver(source="doc.items", operation="find", condition=cond)
+			find_match = res_find.resolve(self.mock_context)
+			self.assertEqual(first_match, find_match)
+
+	def test_canonical_single_row_operations_are_registered_and_condition_safe(self):
+		from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+		for operation in ("first", "last", "find"):
+			payload = {
+				"mode": "resolver",
+				"family": "collection",
+				"operation": operation,
+				"config": {"source": "vars.custom_list"},
+			}
+			with self.subTest(operation=operation):
+				self.assertEqual(ValueResolver.validate_flex_value(payload), "JSON")
+				compiled = ValueResolver.compile_flex_value(payload, consumer="condition")
+				self.assertEqual(
+					compiled.resolve(self.context),
+					{"code": "X", "val": 1} if operation != "last" else {"code": "Y", "val": 2},
+				)
+
+				condition = {
+					"type": "comparison",
+					"operator": "is_set",
+					"left": payload,
+				}
+				self.assertTrue(evaluate_condition(condition, self.context))
+
+		class ChildRow:
+			def as_dict(self):
+				return {"item_code": "ITEM-D"}
+
+		record_payload = {
+			"mode": "resolver",
+			"family": "collection",
+			"operation": "first",
+			"config": {"source": "vars.rows"},
+		}
+		record = ValueResolver.compile_flex_value(record_payload).resolve({"vars": {"rows": [ChildRow()]}})
+		self.assertEqual(record, {"item_code": "ITEM-D"})
+
+	def test_last_operation_returns_last_matching_row(self):
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res = CollectionResolver(source="doc.items", operation="last", condition=cond)
+			last_match = res.resolve(self.mock_context)
+		self.assertIsNotNone(last_match)
+		self.assertEqual(last_match["item_code"], "ITEM-A")
+		self.assertEqual(last_match["qty"], 30)
+
+	def test_last_operation_without_match_returns_none(self):
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Missing"}}]
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res = CollectionResolver(source="doc.items", operation="last", condition=cond)
+			self.assertIsNone(res.resolve(self.mock_context))
+
+	def test_canonical_condition_consumer_rejects_legacy_collection_predicate(self):
+		legacy_condition = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 20}}]
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value(
+				{
+					"mode": "resolver",
+					"family": "collection",
+					"operation": "first",
+					"config": {"source": "vars.custom_list", "condition": legacy_condition},
+				},
+				consumer="condition",
+			)
 
 	def test_filter_operation(self):
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
-		res = CollectionResolver(source="doc.items", operation="filter", condition=cond)
-		filtered = res.resolve(self.context)
-		self.assertEqual(len(filtered), 3)
-		self.assertTrue(all(r["category"] == "Hardware" for r in filtered))
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res = CollectionResolver(source="doc.items", operation="filter", condition=cond)
+			filtered = res.resolve(self.mock_context)
+			self.assertEqual(len(filtered), 3)
+			self.assertTrue(all(r["category"] == "Hardware" for r in filtered))
 
 	def test_pluck_operation(self):
 		res = CollectionResolver(source="doc.items", operation="pluck", target_field="item_code")
@@ -129,10 +241,11 @@ class TestCollectionResolver(unittest.TestCase):
 
 		# Filtered sum (Hardware category: 10 + 120 + 30 = 160)
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
-		res_filtered_sum = CollectionResolver(
-			source="doc.items", operation="sum", target_field="qty", condition=cond
-		)
-		self.assertEqual(res_filtered_sum.resolve(self.context), 160)
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_filtered_sum = CollectionResolver(
+				source="doc.items", operation="sum", target_field="qty", condition=cond
+			)
+			self.assertEqual(res_filtered_sum.resolve(self.mock_context), 160)
 
 	def test_avg_operation(self):
 		# Unfiltered avg of rate (100 + 200 + 150 + 100) / 4 = 137.5
@@ -141,10 +254,11 @@ class TestCollectionResolver(unittest.TestCase):
 
 		# Filtered avg (Hardware category: (100 + 150 + 100) / 3 = 116.66666666666667)
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
-		res_filtered_avg = CollectionResolver(
-			source="doc.items", operation="avg", target_field="rate", condition=cond
-		)
-		self.assertAlmostEqual(res_filtered_avg.resolve(self.context), 116.66666666666667)
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			res_filtered_avg = CollectionResolver(
+				source="doc.items", operation="avg", target_field="rate", condition=cond
+			)
+			self.assertAlmostEqual(res_filtered_avg.resolve(self.mock_context), 116.66666666666667)
 
 	def test_child_aggregation_backward_compatibility(self):
 		# Legacy child_aggregation payload format
@@ -183,7 +297,8 @@ class TestCollectionResolver(unittest.TestCase):
 		}
 		compiled = ValueResolver.compile_resolver_config(canonical_payload)
 		self.assertIsInstance(compiled, CollectionResolver)
-		self.assertEqual(compiled.resolve(self.context), 160)
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			self.assertEqual(compiled.resolve(self.mock_context), 160)
 
 	def test_compiler_integration(self):
 		config_payload = {
@@ -199,3 +314,242 @@ class TestCollectionResolver(unittest.TestCase):
 		compiled = ValueResolver.compile(config_payload)
 		self.assertIsInstance(compiled, CollectionResolver)
 		self.assertEqual(compiled.resolve(self.context), ["ITEM-A", "ITEM-B", "ITEM-C", "ITEM-A"])
+
+	def test_canonical_row_predicates_validate_child_doctype_from_mapping_doc(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldtype="Table", options="Test Order Item")
+				if fieldname == "items"
+				else None
+			)
+		)
+
+		def child_field(fieldname):
+			if fieldname == "item_code":
+				return SimpleNamespace(fieldtype="Data")
+			if fieldname == "qty":
+				return SimpleNamespace(fieldtype="Float")
+			return None
+
+		child_meta = SimpleNamespace(get_field=child_field)
+
+		def get_meta(doctype):
+			if doctype == "Test Order":
+				return parent_meta
+			if doctype == "Test Order Item":
+				return child_meta
+			raise ValueError(f"Unexpected DocType: {doctype}")
+
+		context = {
+			# Deliberately omit context["doctype"]: metadata must be resolved from mapping docs too.
+			"doc": {
+				"doctype": "Test Order",
+				"items": [
+					{"item_code": "ITEM-001", "qty": 10},
+					{"item_code": "ITEM-002", "qty": "25.5"},
+				],
+			}
+		}
+		invalid_condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["item_code"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
+		}
+		valid_condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["qty"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
+		}
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			invalid_resolver = CollectionResolver(
+				source="doc.items", operation="count", condition=invalid_condition
+			)
+			with self.assertRaises(ConditionValidationError) as raised:
+				invalid_resolver.resolve(context)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+			valid_resolver = CollectionResolver(
+				source="doc.items", operation="count", condition=valid_condition
+			)
+			self.assertEqual(valid_resolver.resolve(context), 1)
+
+	def test_canonical_collection_source_unknown_field_fails_closed_with_mapping_doc(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		with patch("frappe.get_meta", return_value=SimpleNamespace(get_field=lambda _fieldname: None)):
+			resolver = CollectionResolver(source="doc.missing_table", operation="count")
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve({"doc": {"doctype": "Test Order"}})
+			self.assertEqual(raised.exception.code, "unknown_field")
+
+	def test_table_multiselect_child_doctype_validates_row_fieldtype(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldtype="Table MultiSelect", options="Test Tag")
+				if fieldname == "tags"
+				else None
+			)
+		)
+		child_meta = SimpleNamespace(
+			get_field=lambda fieldname: SimpleNamespace(fieldtype="Data") if fieldname == "tag_name" else None
+		)
+
+		def get_meta(doctype):
+			if doctype == "Test Parent":
+				return parent_meta
+			if doctype == "Test Tag":
+				return child_meta
+			raise ValueError(f"Unexpected DocType: {doctype}")
+
+		condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {
+				"mode": "variable",
+				"path": {"scope": "row", "segments": ["tag_name"]},
+			},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
+		}
+		resolver = CollectionResolver(source="doc.tags", operation="filter", condition=condition)
+		context = {
+			"doc": {
+				"doctype": "Test Parent",
+				"tags": [{"tag_name": "A"}],
+			}
+		}
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(context)
+
+		self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+	def test_missing_parent_doctype_fails_closed(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		def get_meta(doctype):
+			raise ValueError("DocType NonExistentDoc does not exist")
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			resolver = CollectionResolver(source="doc.items", operation="count")
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve({"doc": {"doctype": "NonExistentDoc"}})
+			self.assertEqual(raised.exception.code, "unknown_doctype")
+
+	def test_missing_child_doctype_fails_closed(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="items", fieldtype="Table", options="NonExistentChild")
+				if fieldname == "items"
+				else None
+			)
+		)
+
+		def get_meta(doctype):
+			if doctype == "Test Order":
+				return parent_meta
+			raise ValueError(f"DocType {doctype} not found")
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			resolver = CollectionResolver(source="doc.items", operation="count")
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve({"doc": {"doctype": "Test Order"}})
+			self.assertEqual(raised.exception.code, "unknown_doctype")
+
+	def test_non_table_parent_field_fails_closed(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="status", fieldtype="Data", options=None)
+				if fieldname == "status"
+				else None
+			)
+		)
+
+		with patch("frappe.get_meta", return_value=parent_meta):
+			resolver = CollectionResolver(source="doc.status", operation="count")
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve({"doc": {"doctype": "Test Order"}})
+			self.assertEqual(raised.exception.code, "collection_source_not_table")
+
+	def test_doc_collection_with_condition_fails_closed_when_parent_doctype_missing(self):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		# When condition is present but parent DocType context cannot be established, must fail closed
+		cond = [{"left": {"ref": "row.qty"}, "op": ">", "right": {"value": 20}}]
+		resolver = CollectionResolver(source="doc.items", operation="count", condition=cond)
+		with self.assertRaises(ConditionValidationError) as raised:
+			resolver.resolve({"doc": {"items": [{"qty": 10}, {"qty": 30}]}})
+		self.assertEqual(raised.exception.code, "unknown_doctype")
+
+	def test_doc_collection_with_canonical_condition_fails_closed_when_parent_doctype_missing(self):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		canonical_cond = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["qty"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 20},
+		}
+		resolver = CollectionResolver(source="doc.items", operation="count", condition=canonical_cond)
+		with self.assertRaises(ConditionValidationError) as raised:
+			resolver.resolve({"doc": {"items": [{"qty": 10}, {"qty": 30}]}})
+		self.assertEqual(raised.exception.code, "unknown_doctype")
+
+	def test_child_predicate_referencing_invalid_field_fails_closed(self):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		invalid_field_cond = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["non_existent_child_field"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "test"},
+		}
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			resolver = CollectionResolver(source="doc.items", operation="count", condition=invalid_field_cond)
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(self.mock_context)
+			self.assertEqual(raised.exception.code, "unknown_field")
+
+	def test_child_predicate_referencing_invalid_operator_fails_closed(self):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		# "item_code" is Data fieldtype, operator "gt" is unsupported for Data
+		invalid_op_cond = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["item_code"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 100},
+		}
+		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
+			resolver = CollectionResolver(source="doc.items", operation="count", condition=invalid_op_cond)
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(self.mock_context)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")

@@ -71,6 +71,18 @@ const shortcutGroups = [
 		],
 	},
 	{
+		label: __("Lists & Conditions"),
+		items: [
+			{ keys: ["Ctrl", "Shift", "E"], label: __("Toggle Edit / Summary view") },
+			{ keys: ["Shift", "Enter"], label: __("Insert row / condition below") },
+			{ keys: ["Space"], label: __("Select / focus item") },
+			{ keys: ["Alt", "Shift", "↓"], label: __("Duplicate item in-place") },
+			{ keys: ["Ctrl", "C"], label: __("Copy selected item(s)") },
+			{ keys: ["Delete"], label: __("Remove item(s)") },
+			{ keys: ["Shift", "F10"], label: __("Open item options menu") },
+		],
+	},
+	{
 		label: __("Canvas"),
 		items: [
 			{ keys: ["Space"], label: __("Pan canvas") },

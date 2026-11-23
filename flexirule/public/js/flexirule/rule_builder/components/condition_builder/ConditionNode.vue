@@ -1,7 +1,10 @@
 <script setup>
 import { inject } from "vue";
 /**
- * ConditionNode - Routes to correct component based on node type
+ * DEPRECATED: ConditionNode - Routes to legacy components.
+ * Canonical replacement: CanonicalConditionLeaf.vue / CanonicalConditionBuilder.vue.
+ * New code must not import or depend on this component.
+ * Physical removal is deferred to a future dedicated cleanup change.
  */
 import SimpleCondition from "./SimpleCondition.vue";
 import ConditionGroupUI from "./ConditionGroupUI.vue";

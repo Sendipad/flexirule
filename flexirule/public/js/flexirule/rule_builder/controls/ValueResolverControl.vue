@@ -9,7 +9,7 @@
 			v-if="viewMode === 'popover'"
 			ref="tokenRef"
 			class="fxr-token"
-			:class="{ 'is-active': showPopover, 'is-invalid': !isValid }"
+			:class="{ 'is-active': showPopover, 'is-invalid': !resolverValid }"
 			tabindex="0"
 			@click="togglePopover"
 			@keydown="handleParentKeydown"
@@ -68,6 +68,7 @@
 					<!-- Dynamic Strategy Component -->
 					<component
 						v-if="activeStrategy?.component"
+						ref="resolverComponentRef"
 						:is="activeStrategy.component"
 						v-model="localState"
 						:doctype="doctype"
@@ -87,8 +88,12 @@
 						<i class="fa fa-info-circle mr-1 text-muted"></i>
 						<span>{{ __(activeStrategy.description) }}</span>
 					</div>
-					<div v-if="errors.length" class="fxr-validation-errors">
-						<div v-for="err in errors" :key="err" class="text-danger fxr-text-xs">
+					<div v-if="allValidationErrors.length" class="fxr-validation-errors">
+						<div
+							v-for="err in allValidationErrors"
+							:key="err"
+							class="text-danger fxr-text-xs"
+						>
 							<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
 						</div>
 					</div>
@@ -147,6 +152,8 @@ const emit = defineEmits(["update:modelValue"]);
 const tokenRef = ref(null);
 const kindSelectRef = ref(null);
 const { registerShortcut } = useKeyboardRegistry();
+const resolverComponentRef = ref(null);
+const deepValidationErrors = ref([]);
 const { handleTab } = useFocusTrap();
 const unregisterEsc = ref(null);
 const backupState = ref(null);
@@ -193,6 +200,19 @@ const resolverFieldname = computed(() => {
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(() => props.doctype, syncFromProps);
+watch(
+	[localState, activeKind],
+	() => {
+		deepValidationErrors.value = [];
+	},
+	{ deep: true }
+);
+
+const allValidationErrors = computed(() => [
+	...(errors.value || []),
+	...deepValidationErrors.value,
+]);
+const resolverValid = computed(() => isValid.value && allValidationErrors.value.length === 0);
 
 onMounted(() => {
 	syncFromProps();
@@ -293,11 +313,38 @@ const closePopover = () => {
 	});
 };
 
+async function validate() {
+	const validationErrors = [...(errors.value || [])];
+	let nestedResult = null;
+
+	if (resolverComponentRef.value?.validate) {
+		nestedResult = await resolverComponentRef.value.validate();
+	} else if (activeStrategy.value?.validateDeep) {
+		nestedResult = await activeStrategy.value.validateDeep(localState.value, props);
+	}
+
+	if (nestedResult) {
+		const nestedValid =
+			nestedResult.valid !== undefined ? nestedResult.valid : nestedResult.isValid !== false;
+		if (!nestedValid) {
+			deepValidationErrors.value = nestedResult.errors || [];
+			validationErrors.push(...deepValidationErrors.value);
+		} else {
+			deepValidationErrors.value = [];
+		}
+	}
+
+	return {
+		valid: isValid.value && validationErrors.length === 0,
+		errors: validationErrors,
+	};
+}
+
 defineExpose({
 	open,
 	close: closePopover,
 	focus: () => tokenRef.value?.focus(),
-	validate: () => ({ valid: isValid.value, errors: errors.value }),
+	validate,
 });
 
 const popoverTitle = computed(() => {
@@ -313,9 +360,9 @@ const expressionSnippet = computed(() => {
 });
 
 const validationTooltip = computed(() => {
-	if (isValid.value) return null;
+	if (resolverValid.value) return null;
 	return {
-		content: errors.value.join(", "),
+		content: allValidationErrors.value.join(", "),
 		theme: "error",
 		placement: "top",
 	};

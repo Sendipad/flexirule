@@ -75,6 +75,19 @@ describe("FlexiRule builder regression coverage", () => {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
 	}
 
+	function parseRequestBody(body) {
+		if (!body) return {};
+		if (typeof body !== "string") return body;
+
+		try {
+			return JSON.parse(body);
+		} catch {
+			// Frappe may send POST arguments as application/x-www-form-urlencoded.
+			// Decode the form fields before parsing the JSON document value.
+			return Object.fromEntries(new URLSearchParams(body).entries());
+		}
+	}
+
 	function actionConfig(action) {
 		try {
 			return typeof action.config === "string"
@@ -240,9 +253,41 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains(".vue-flow__node", bodyLabel, { timeout: 15000 }).should("be.visible");
 		configureAssignmentForLoopBody(bodyLabel);
 
+		cy.intercept("POST", "**/api/method/flexirule.ruleflow.api.validate_rule_document").as(
+			"validateRule"
+		);
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
-		cy.wait("@saveRule");
+		cy.wait("@validateRule").then(({ request, response }) => {
+			const requestBody = parseRequestBody(request.body);
+			const validationDoc = requestBody.args?.doc ?? requestBody.doc;
+			const doc =
+				typeof validationDoc === "string" ? JSON.parse(validationDoc) : validationDoc || {};
+			const actions = Array.isArray(doc.actions) ? doc.actions : [];
+			const assignmentAction = actions.find(
+				(action) => action.action_type === "Assignment" && action.action_label === bodyLabel
+			);
+			expect(assignmentAction, "nested body Assignment is included in validation").to.exist;
+			const rows = actionConfig(assignmentAction);
+			expect(rows, "nested body Assignment rows").to.be.an("array").and.not.empty;
+
+			expect(rows[0].operator).to.eq("clear");
+			expect(rows[0]).not.to.have.property("value");
+
+			const result = response?.body?.message ?? response?.body;
+			expect(
+				result?.valid,
+				`Backend validation errors: ${(result?.errors || []).join("; ")}`
+			).to.eq(true);
+
+			["pythonExpression", "when_expression", "when"].forEach((key) => {
+				expect(
+					rows[0],
+					`canonical Assignment omits legacy guard field ${key}`
+				).not.to.have.property(key);
+			});
+		});
+		cy.wait("@saveRule").its("response.statusCode").should("eq", 200);
 
 		persistedRule().then((doc) => {
 			const loops = doc.actions.filter((action) => action.action_type === "Loop");

@@ -29,27 +29,49 @@
 				>
 					<i class="fa fa-sitemap"></i>
 				</button>
-				<button
-					type="button"
-					class="fxr-btn fxr-btn--icon fxr-btn--danger"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-times"></i>
-				</button>
+				<RowActionsMenu
+					:actions="collectionActions"
+					:context="collectionContext"
+					:disabled="readOnly"
+					:buttonTitle="__('Collection options')"
+					:buttonAriaLabel="__('Collection options')"
+				/>
 			</div>
 		</div>
 		<div class="tree-collection__children"><slot name="children" /></div>
 	</div>
 </template>
 <script setup>
-defineProps({
+import { computed, inject } from "vue";
+import RowActionsMenu from "../common/RowActionsMenu.vue";
+import { useTreeBuilderActions } from "./useTreeBuilderActions.js";
+
+const props = defineProps({
 	node: { type: Object, required: true },
+	parent: { type: Object, default: () => ({ id: "root" }) },
+	index: { type: Number, default: 0 },
 	label: { type: String, default: "Collection" },
 	readOnly: Boolean,
 	allowGroups: Boolean,
 	allowCollections: Boolean,
 });
 defineEmits(["add-leaf", "add-group", "add-collection", "remove"]);
+
+const api = inject("treeBuilderContext", null);
+
+const { getNodeActionList } = useTreeBuilderActions({
+	treeApi: api,
+	readOnly: computed(() => props.readOnly),
+	beforeRemove: computed(() => api?.beforeRemove?.value || api?.beforeRemove),
+});
+
+const collectionContext = computed(() => ({
+	node: props.node,
+	parent: props.parent,
+	index: props.index,
+}));
+
+const collectionActions = computed(() => getNodeActionList(collectionContext.value));
 </script>
 <style scoped>
 .tree-collection {

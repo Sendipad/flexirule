@@ -85,6 +85,13 @@ class StopHandler(ActionHandler):
 			value_template = getattr(action, "value_template", "") or _(
 				"Rule execution stopped by terminal error"
 			)
+			config = self._parse_config(getattr(action, "config", None))
+			cond_registry = (
+				config.get("condition_registry")
+				or config.get("text_generator_ui", {}).get("condition_registry")
+				or {}
+			)
+			context["_condition_registry"] = cond_registry
 			template_context = self._build_template_context(context, engine)
 			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 			message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
@@ -218,6 +225,12 @@ class RaiseErrorHandler(ActionHandler):
 		error_code = (config.get("error_code") or "").strip()
 
 		# Render Jinja template with SafeFrappeAPI to prevent write operations
+		cond_registry = (
+			config.get("condition_registry")
+			or config.get("text_generator_ui", {}).get("condition_registry")
+			or {}
+		)
+		context["_condition_registry"] = cond_registry
 		template_context = self._build_template_context(context, engine)
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
@@ -348,6 +361,12 @@ class NotifyHandler(ActionHandler):
 			getattr(action, "operation", self.MODE_TOAST) or self.MODE_TOAST
 		)
 
+		cond_registry = (
+			fallback_config.get("condition_registry")
+			or fallback_config.get("text_generator_ui", {}).get("condition_registry")
+			or {}
+		)
+		context["_condition_registry"] = cond_registry
 		message = self._render_from_spec(
 			plan.get("message_spec"), context, engine, default=getattr(action, "value_template", "") or ""
 		)
@@ -459,6 +478,15 @@ class NotifyHandler(ActionHandler):
 		ctx = self._build_template_context(context, engine)
 		ctx["context"] = context
 		return ctx
+
+	def _render_template_with_config(self, template, config, context, engine=None):
+		cond_registry = (
+			config.get("condition_registry")
+			or config.get("text_generator_ui", {}).get("condition_registry")
+			or {}
+		)
+		context["_condition_registry"] = cond_registry
+		return self._render_template(template, context, engine)
 
 	def _render_template(self, template, context, engine=None):
 		template = template or ""
