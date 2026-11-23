@@ -8,7 +8,9 @@
 
 function findResolverSpec(resolverSpecs, family, operation) {
 	if (!Array.isArray(resolverSpecs)) return null;
-	return resolverSpecs.find((item) => item.family === family && item.operation === operation) || null;
+	return (
+		resolverSpecs.find((item) => item.family === family && item.operation === operation) || null
+	);
 }
 
 function knownNumericValue(value) {
