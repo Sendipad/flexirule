@@ -485,12 +485,6 @@ def _known_right_fieldtype_check(operator_id: str, fieldtype: str | None, path: 
 	if not fieldtype:
 		return
 	spec = OPERATOR_REGISTRY[operator_id]
-	if spec.fieldtypes is not None and fieldtype not in spec.fieldtypes:
-		_fail(
-			"fieldtype_not_supported",
-			f"{path}.right",
-			"Operator is not supported for the right operand's Fieldtype",
-		)
 	known_types = FIELD_TYPE_VALUE_TYPES.get(fieldtype)
 	if known_types and not any(value_type in spec.right_types for value_type in known_types):
 		_fail(
