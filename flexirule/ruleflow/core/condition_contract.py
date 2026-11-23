@@ -480,7 +480,6 @@ def _known_fieldtype_check(
 		)
 
 
-
 def _known_right_fieldtype_check(operator_id: str, fieldtype: str | None, path: str) -> None:
 	"""Validate metadata-backed right operands against the operator's right domain."""
 	if not fieldtype:
@@ -647,7 +646,9 @@ def _validate_node(
 				_fail("invalid_variable_scope", f"{path}.left.path.scope", "Variable scope must be a string")
 			segments = tuple(path_value.get("segments") or ())
 			left_fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
-			_known_fieldtype_check(operator_id, left_value, left_fieldtype, path, node.get("right"), right_type)
+			_known_fieldtype_check(
+				operator_id, left_value, left_fieldtype, path, node.get("right"), right_type
+			)
 
 		right_value = node.get("right")
 		right_fieldtype = None
