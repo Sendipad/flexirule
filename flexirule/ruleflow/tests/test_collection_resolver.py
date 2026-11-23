@@ -115,6 +115,43 @@ class TestCollectionResolver(unittest.TestCase):
 			find_match = res_find.resolve(self.mock_context)
 			self.assertEqual(first_match, find_match)
 
+	def test_canonical_single_row_operations_are_registered_and_condition_safe(self):
+		from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+		for operation in ("first", "last", "find"):
+			payload = {
+				"mode": "resolver",
+				"family": "collection",
+				"operation": operation,
+				"config": {"source": "vars.custom_list"},
+			}
+			with self.subTest(operation=operation):
+				self.assertEqual(ValueResolver.validate_flex_value(payload), "JSON")
+				compiled = ValueResolver.compile_flex_value(payload, consumer="condition")
+				self.assertEqual(compiled.resolve(self.context), {"code": "X", "val": 1} if operation != "last" else {"code": "Y", "val": 2})
+
+				condition = {
+					"type": "comparison",
+					"operator": "is_set",
+					"left": payload,
+				}
+				self.assertTrue(evaluate_condition(condition, self.context))
+
+		class ChildRow:
+			def as_dict(self):
+				return {"item_code": "ITEM-D"}
+
+		record_payload = {
+			"mode": "resolver",
+			"family": "collection",
+			"operation": "first",
+			"config": {"source": "vars.rows"},
+		}
+		record = ValueResolver.compile_flex_value(record_payload).resolve(
+			{"vars": {"rows": [ChildRow()]}}
+		)
+		self.assertEqual(record, {"item_code": "ITEM-D"})
+
 	def test_last_operation_returns_last_matching_row(self):
 		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
 		with patch("frappe.get_meta", side_effect=self._fake_get_meta):
