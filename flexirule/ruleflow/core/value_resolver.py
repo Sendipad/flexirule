@@ -1972,8 +1972,12 @@ def _register_builtins():
 			return "Datetime"
 		if base_type == "current_time":
 			return "Time"
-		if cfg.get("base_field") or base_type == "doc_field":
+		if base_type == "doc_field":
+			return None if cfg.get("base_field") else "null"
+		if cfg.get("base_field"):
 			return None
+		if base_type is None:
+			return "null"
 		if cfg.get("offset_unit") in {"hours", "minutes", "seconds"}:
 			return "Datetime"
 		return "Date"
@@ -1983,7 +1987,7 @@ def _register_builtins():
 		if source is None:
 			source = cfg.get("base_field")
 		if source is None:
-			return "Date"
+			return "null"
 		source_type = _nested_output_type(source)
 		return None if source_type in {"Time", "time"} else source_type
 
@@ -2546,7 +2550,7 @@ def _register_builtins():
 		),
 		output_type_resolver=lambda cfg: "boolean"
 		if cfg.get("sys_token", "user") == "role_check"
-		else "Data",
+		else ("null" if cfg.get("sys_token", "user") is None else "Data"),
 		condition_operand_allowed=True,
 	)
 
