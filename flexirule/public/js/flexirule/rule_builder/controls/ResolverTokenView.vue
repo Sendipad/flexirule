@@ -95,13 +95,7 @@ const handleUpdate = (config, details) => {
 		: null;
 	const innerConfig =
 		config?.config && typeof config.config === "object" ? config.config : config || {};
-	const inferredType = resolveResolverOutputFieldtype(
-		fam,
-		op,
-		innerConfig,
-		spec,
-		resolverSpecs
-	);
+	const inferredType = resolveResolverOutputFieldtype(fam, op, innerConfig, spec, resolverSpecs);
 	const vType =
 		inferredType ||
 		(spec?.output_type_is_dynamic
