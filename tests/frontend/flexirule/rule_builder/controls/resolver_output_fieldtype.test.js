@@ -21,10 +21,16 @@ test("resolver output fieldtype uses Frappe-native Date, Datetime, and Time type
 test("date_time.diff uses Int for whole units and Float for fractional units", () => {
 	const dynamicSpec = { output_type: "Int", output_type_is_dynamic: true };
 	for (const unit of ["days", "months", "years", "seconds"]) {
-		assert.equal(resolveResolverOutputFieldtype("date_time", "diff", { diff_unit: unit }, dynamicSpec), "Int");
+		assert.equal(
+			resolveResolverOutputFieldtype("date_time", "diff", { diff_unit: unit }, dynamicSpec),
+			"Int"
+		);
 	}
 	for (const unit of ["hours", "minutes"]) {
-		assert.equal(resolveResolverOutputFieldtype("date_time", "diff", { diff_unit: unit }, dynamicSpec), "Float");
+		assert.equal(
+			resolveResolverOutputFieldtype("date_time", "diff", { diff_unit: unit }, dynamicSpec),
+			"Float"
+		);
 	}
 });
 
