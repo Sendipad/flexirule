@@ -28,6 +28,7 @@ import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import { getFunctionIcon } from "../../core/formula_registry";
+import { resolveResolverOutputFieldtype } from "./resolver_output_fieldtype.mjs";
 
 const props = defineProps(nodeViewProps);
 const resolverControlRef = ref(null);
@@ -87,7 +88,25 @@ const currentModelValue = computed(() => {
 const handleUpdate = (config, details) => {
 	const fam = config?.family || props.node?.attrs?.family || "";
 	const op = config?.operation || props.node?.attrs?.operation || "";
-	const vType = config?.value_type || props.node?.attrs?.value_type || "";
+	const context = props.extension?.options?.context || {};
+	const resolverSpecs = context.conditionContract?.flexvalue_modes?.resolver;
+	const spec = Array.isArray(resolverSpecs)
+		? resolverSpecs.find((entry) => entry.family === fam && entry.operation === op)
+		: null;
+	const innerConfig =
+		config?.config && typeof config.config === "object" ? config.config : config || {};
+	const inferredType = resolveResolverOutputFieldtype(
+		fam,
+		op,
+		innerConfig,
+		spec,
+		resolverSpecs
+	);
+	const vType =
+		inferredType ||
+		(spec?.output_type_is_dynamic
+			? ""
+			: config?.value_type || props.node?.attrs?.value_type || spec?.output_type || "");
 
 	props.updateAttributes({
 		config: config,
