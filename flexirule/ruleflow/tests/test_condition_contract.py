@@ -41,6 +41,7 @@ class TestCanonicalConditionContract(unittest.TestCase):
 			"status": SimpleNamespace(fieldtype="Select"),
 			"quantity": SimpleNamespace(fieldtype="Int"),
 			"amount": SimpleNamespace(fieldtype="Float"),
+			"allowed_statuses": SimpleNamespace(fieldtype="Table"),
 		}
 		mock_get_meta.return_value = SimpleNamespace(get_field=lambda name: fields.get(name))
 
@@ -66,6 +67,11 @@ class TestCanonicalConditionContract(unittest.TestCase):
 			)
 		validate_condition_node(
 			comparison("gt", "quantity", "amount"),
+			doctype="Test Doc",
+			scope_doctypes={"doc": "Test Doc"},
+		)
+		validate_condition_node(
+			comparison("in", "status", "allowed_statuses"),
 			doctype="Test Doc",
 			scope_doctypes={"doc": "Test Doc"},
 		)
