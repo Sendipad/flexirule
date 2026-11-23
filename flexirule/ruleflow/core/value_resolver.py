@@ -147,6 +147,7 @@ class DateFormulaResolver(CompiledResolver):
 		offset_unit: str = "days",
 		offset_sign: str = "+",
 		source: Any = None,
+		consumer: str = "all",
 	):
 		self.base_type = base_type
 		self.base_field = base_field
@@ -157,7 +158,7 @@ class DateFormulaResolver(CompiledResolver):
 
 		# Compile base source
 		if self.source is not None:
-			self.base_compiled = ValueResolver.compile(self.source)
+			self.base_compiled = ValueResolver.compile_nested_value(self.source, consumer=consumer)
 		elif self.base_type in ("today", "current_date"):
 			self.base_compiled = DateCurrentResolver("date")
 		elif self.base_type in ("current_datetime", "now"):
@@ -175,7 +176,7 @@ class DateFormulaResolver(CompiledResolver):
 			isinstance(self.offset_value, str)
 			and (self.offset_value.startswith("doc.") or self.offset_value.startswith("vars."))
 		):
-			self.offset_compiled = ValueResolver.compile(self.offset_value)
+			self.offset_compiled = ValueResolver.compile_nested_value(self.offset_value, consumer=consumer)
 		else:
 			self.offset_compiled = None
 
@@ -283,6 +284,7 @@ class DateDiffResolver(CompiledResolver):
 		diff_unit: str = "days",
 		start_source: Any = None,
 		end_source: Any = None,
+		consumer: str = "all",
 	):
 		self.diff_start_type = diff_start_type
 		self.diff_start_field = diff_start_field
@@ -291,7 +293,7 @@ class DateDiffResolver(CompiledResolver):
 		self.diff_unit = diff_unit or "days"
 
 		if start_source is not None:
-			self.start_compiled = ValueResolver.compile(start_source)
+			self.start_compiled = ValueResolver.compile_nested_value(start_source, consumer=consumer)
 		elif self.diff_start_type in ("today", "current_date"):
 			self.start_compiled = DateCurrentResolver("date")
 		elif self.diff_start_type in ("current_datetime", "now"):
@@ -302,7 +304,7 @@ class DateDiffResolver(CompiledResolver):
 			self.start_compiled = NoneResolver()
 
 		if end_source is not None:
-			self.end_compiled = ValueResolver.compile(end_source)
+			self.end_compiled = ValueResolver.compile_nested_value(end_source, consumer=consumer)
 		elif self.diff_end_type in ("today", "current_date"):
 			self.end_compiled = DateCurrentResolver("date")
 		elif self.diff_end_type in ("current_datetime", "now"):
@@ -341,9 +343,13 @@ class DateDiffResolver(CompiledResolver):
 
 
 class DateExtractResolver(CompiledResolver):
-	def __init__(self, source: Any = None, component: str = "year"):
+	def __init__(self, source: Any = None, component: str = "year", consumer: str = "all"):
 		self.component = (component or "year").lower()
-		self.source_compiled = ValueResolver.compile(source) if source is not None else NoneResolver()
+		self.source_compiled = (
+			ValueResolver.compile_nested_value(source, consumer=consumer)
+			if source is not None
+			else NoneResolver()
+		)
 
 	def resolve(self, context: dict) -> Any:
 		val = self.source_compiled.resolve(context)
@@ -392,9 +398,13 @@ class DateExtractResolver(CompiledResolver):
 
 
 class DateBoundaryResolver(CompiledResolver):
-	def __init__(self, source: Any = None, boundary_type: str = "start_of_month"):
+	def __init__(self, source: Any = None, boundary_type: str = "start_of_month", consumer: str = "all"):
 		self.boundary_type = (boundary_type or "start_of_month").lower()
-		self.source_compiled = ValueResolver.compile(source) if source is not None else NoneResolver()
+		self.source_compiled = (
+			ValueResolver.compile_nested_value(source, consumer=consumer)
+			if source is not None
+			else NoneResolver()
+		)
 
 	def resolve(self, context: dict) -> Any:
 		val = self.source_compiled.resolve(context)
@@ -728,13 +738,13 @@ class CollectionResolver(CompiledResolver):
 		if op == "first":
 			for r in rows:
 				if _matches(r):
-					return r
+					return self._as_record_value(r)
 			return None
 
 		if op == "last":
 			for r in reversed(rows):
 				if _matches(r):
-					return r
+					return self._as_record_value(r)
 			return None
 
 		if op == "filter":
@@ -765,6 +775,16 @@ class CollectionResolver(CompiledResolver):
 			return res
 
 		return None
+
+	@staticmethod
+	def _as_record_value(row: Any) -> Any:
+		"""Return row documents as JSON-compatible mappings for canonical consumers."""
+		if isinstance(row, Mapping):
+			return dict(row)
+		as_dict = getattr(row, "as_dict", None)
+		if callable(as_dict):
+			return as_dict()
+		return row
 
 	@staticmethod
 	def _get_row_field(row: Any, fieldname: str) -> Any:
@@ -1436,6 +1456,22 @@ class ValueResolver:
 
 		_fail("unknown_flex_value_mode", f"{path}.mode", "Unsupported FlexValue mode")
 
+	@staticmethod
+	def compile_nested_value(
+		value: Any,
+		*,
+		consumer: str = "all",
+		context_metadata: dict[str, Any] | None = None,
+	) -> CompiledResolver:
+		"""Compile nested canonical FlexValues without falling back to the legacy compiler."""
+		if isinstance(value, Mapping) and "mode" in value:
+			return ValueResolver.compile_flex_value(
+				value,
+				context_metadata=context_metadata,
+				consumer=consumer,
+			)
+		return ValueResolver.compile(value)
+
 	@classmethod
 	def compile_flex_value(
 		cls,
@@ -1476,7 +1512,9 @@ class ValueResolver:
 			operation = flex_value["operation"]
 			config = flex_value.get("config", {})
 			entry = cls.REGISTRY[(family, operation)]
-			return entry["factory"](config, context_metadata)
+			factory_context = dict(context_metadata) if isinstance(context_metadata, Mapping) else {}
+			factory_context["_flexvalue_consumer"] = consumer
+			return entry["factory"](config, factory_context)
 
 		if mode == "template":
 			cls.validate_flex_value(flex_value, path=path, consumer=consumer)
@@ -1955,6 +1993,10 @@ def _register_builtins():
 		token = (cfg.get("token") or "date").lower()
 		return "Datetime" if token in {"datetime", "now"} else ("Time" if token == "time" else "Date")
 
+	def _output_dt_diff(cfg):
+		unit = (cfg.get("diff_unit") or "days").lower()
+		return "Float" if unit in {"hours", "minutes"} else "Int"
+
 	def _known_offset(cfg):
 		raw_offset = cfg.get("offset_value", 0)
 		if isinstance(raw_offset, dict):
@@ -2108,6 +2150,7 @@ def _register_builtins():
 			offset_unit=cfg.get("offset_unit", "days"),
 			offset_sign=cfg.get("offset_sign", "+"),
 			source=cfg.get("source"),
+			consumer=meta.get("_flexvalue_consumer", "all") if isinstance(meta, dict) else "all",
 		),
 		output_type_resolver=_output_dt_calculate,
 		condition_operand_allowed=True,
@@ -2169,7 +2212,9 @@ def _register_builtins():
 			diff_unit=cfg.get("diff_unit", "days"),
 			start_source=cfg.get("start_source"),
 			end_source=cfg.get("end_source"),
+			consumer=meta.get("_flexvalue_consumer", "all") if isinstance(meta, dict) else "all",
 		),
+		output_type_resolver=_output_dt_diff,
 		condition_operand_allowed=True,
 	)
 
@@ -2213,6 +2258,7 @@ def _register_builtins():
 		factory=lambda cfg, meta: DateExtractResolver(
 			source=cfg.get("source") or cfg.get("base_field"),
 			component=cfg.get("component", "year"),
+			consumer=meta.get("_flexvalue_consumer", "all") if isinstance(meta, dict) else "all",
 		),
 		condition_operand_allowed=True,
 	)
@@ -2264,6 +2310,7 @@ def _register_builtins():
 		factory=lambda cfg, meta: DateBoundaryResolver(
 			source=cfg.get("source") or cfg.get("base_field"),
 			boundary_type=cfg.get("boundary_type", "start_of_month"),
+			consumer=meta.get("_flexvalue_consumer", "all") if isinstance(meta, dict) else "all",
 		),
 		output_type_resolver=_output_dt_boundary,
 		condition_operand_allowed=True,
@@ -2534,11 +2581,19 @@ def _register_builtins():
 		return _factory
 
 	# collection operations
-	for col_op in ["any", "all", "count", "sum", "avg", "first", "last", "filter", "pluck", "unique"]:
+	for col_op in ["any", "all", "count", "sum", "avg", "first", "last", "find", "filter", "pluck", "unique"]:
 		out_type = (
 			"Float"
 			if col_op in ("sum", "avg")
-			else ("Int" if col_op == "count" else ("Check" if col_op in ("any", "all") else "Table"))
+			else (
+				"Int"
+				if col_op == "count"
+				else (
+					"Check"
+					if col_op in ("any", "all")
+					else ("JSON" if col_op in ("first", "last", "find") else "Table")
+				)
+			)
 		)
 		ValueResolver.register_resolver(
 			"collection",
@@ -2571,7 +2626,7 @@ def _register_builtins():
 			sys_token=cfg.get("sys_token", "user"),
 			sys_role=cfg.get("sys_role", ""),
 		),
-		output_type_resolver=lambda cfg: "boolean"
+		output_type_resolver=lambda cfg: "Check"
 		if cfg.get("sys_token", "user") == "role_check"
 		else ("null" if cfg.get("sys_token", "user") is None else "Data"),
 		condition_operand_allowed=True,
