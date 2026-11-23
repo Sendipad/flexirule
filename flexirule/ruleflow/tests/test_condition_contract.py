@@ -8,10 +8,10 @@ import json
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 import frappe
-from typing import Any
 
 from flexirule.ruleflow.core.condition_contract import (
 	OPERATOR_REGISTRY,
