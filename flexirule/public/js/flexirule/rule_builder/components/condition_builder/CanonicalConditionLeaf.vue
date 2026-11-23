@@ -144,6 +144,7 @@ import { ref, computed, watch } from "vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import UnsupportedConditionCard from "./UnsupportedConditionCard.vue";
+import { resolveResolverOutputFieldtype } from "../../controls/resolver_output_fieldtype.mjs";
 import {
 	toCanonicalFlexValue,
 	fieldExpressionToCanonicalVariable,
@@ -267,8 +268,19 @@ const leftOperandDescriptor = computed(() => {
 			? resolvers.find((r) => r.family === fam && r.operation === op)
 			: null;
 
-		let outputFt = spec?.output_type || declaredVt || "Data";
-		// Normalize output type if it's already a semantic alias (e.g. Float -> decimal, Int -> integer)
+		const inferredOutputFt = resolveResolverOutputFieldtype(
+			fam,
+			op,
+			left.config || {},
+			spec,
+			resolvers
+		);
+		// Dynamic output contracts are resolved from this operand's config. When
+		// the config cannot determine a type, use a neutral editor fallback only;
+		// never turn the fallback into a persisted FlexValue.value_type.
+		const outputFt =
+			inferredOutputFt ||
+			(spec?.output_type_is_dynamic ? "Data" : spec?.output_type || declaredVt || "Data");
 		const valueTypes = fieldtypeValueTypes[outputFt] || [outputFt.toLowerCase()];
 		const semanticVt = valueTypes[0] || "string";
 
