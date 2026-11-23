@@ -1380,7 +1380,9 @@ class ValueResolver:
 				else entry["output_type"]
 			)
 			if output_type is not None and output_type not in VALUE_TYPES:
-				_fail("invalid_resolver_output_type", path, "Resolver produced an invalid output type contract")
+				_fail(
+					"invalid_resolver_output_type", path, "Resolver produced an invalid output type contract"
+				)
 			if declared_vt and output_type is not None and declared_vt != output_type:
 				_fail(
 					"resolver_output_type_mismatch",
@@ -1938,7 +1940,11 @@ def _register_builtins():
 		if mode == "static":
 			return source.get("value_type")
 		if mode == "resolver":
-			entry = ValueResolver.REGISTRY.get((source.get("family"), source.get("operation")))
+			family = source.get("family")
+			operation = source.get("operation")
+			if not isinstance(family, str) or not isinstance(operation, str):
+				return None
+			entry = ValueResolver.REGISTRY.get((family, operation))
 			if not entry:
 				return None
 			resolver = entry.get("output_type_resolver")
@@ -2528,7 +2534,9 @@ def _register_builtins():
 			sys_token=cfg.get("sys_token", "user"),
 			sys_role=cfg.get("sys_role", ""),
 		),
-		output_type_resolver=lambda cfg: "boolean" if cfg.get("sys_token", "user") == "role_check" else "Data",
+		output_type_resolver=lambda cfg: "boolean"
+		if cfg.get("sys_token", "user") == "role_check"
+		else "Data",
 		condition_operand_allowed=True,
 	)
 
