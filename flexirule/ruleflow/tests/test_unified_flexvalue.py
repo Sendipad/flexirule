@@ -42,6 +42,44 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		with self.assertRaises(ConditionValidationError):
 			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": "yes"})
 
+	def test_configuration_derived_resolver_output_types(self):
+		current_datetime = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "current",
+			"config": {"token": "datetime"},
+		}
+		current_time = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "current",
+			"config": {"token": "time"},
+		}
+		role_check = {
+			"mode": "resolver",
+			"family": "system_context",
+			"operation": "get",
+			"config": {"sys_token": "role_check", "sys_role": "System Manager"},
+		}
+		self.assertEqual(ValueResolver.validate_flex_value(current_datetime), "Datetime")
+		self.assertEqual(ValueResolver.validate_flex_value(current_time), "Time")
+		self.assertEqual(ValueResolver.validate_flex_value(role_check), "boolean")
+
+		mismatched = {**current_datetime, "value_type": "Date"}
+		with self.assertRaises(ConditionValidationError) as raised:
+			ValueResolver.validate_flex_value(mismatched)
+		self.assertEqual(raised.exception.code, "resolver_output_type_mismatch")
+
+		dynamic_source = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "calculate",
+			"config": {
+				"source": {"mode": "variable", "path": {"scope": "doc", "segments": ["due_at"]}},
+			},
+		}
+		self.assertIsNone(ValueResolver.validate_flex_value(dynamic_source))
+
 	def test_canonical_variable_resolution(self):
 		payload = {
 			"mode": "variable",
