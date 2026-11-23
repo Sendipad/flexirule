@@ -128,7 +128,10 @@ class TestCollectionResolver(unittest.TestCase):
 			with self.subTest(operation=operation):
 				self.assertEqual(ValueResolver.validate_flex_value(payload), "JSON")
 				compiled = ValueResolver.compile_flex_value(payload, consumer="condition")
-				self.assertEqual(compiled.resolve(self.context), {"code": "X", "val": 1} if operation != "last" else {"code": "Y", "val": 2})
+				self.assertEqual(
+					compiled.resolve(self.context),
+					{"code": "X", "val": 1} if operation != "last" else {"code": "Y", "val": 2},
+				)
 
 				condition = {
 					"type": "comparison",
@@ -147,9 +150,7 @@ class TestCollectionResolver(unittest.TestCase):
 			"operation": "first",
 			"config": {"source": "vars.rows"},
 		}
-		record = ValueResolver.compile_flex_value(record_payload).resolve(
-			{"vars": {"rows": [ChildRow()]}}
-		)
+		record = ValueResolver.compile_flex_value(record_payload).resolve({"vars": {"rows": [ChildRow()]}})
 		self.assertEqual(record, {"item_code": "ITEM-D"})
 
 	def test_last_operation_returns_last_matching_row(self):
