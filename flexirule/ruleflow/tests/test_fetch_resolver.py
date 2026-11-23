@@ -383,7 +383,12 @@ class TestFetchResolver(unittest.TestCase):
 		)
 		with self.assertRaises(frappe.PermissionError):
 			resolver.resolve(self.context)
-		mock_get_list.assert_called_once()
+		mock_get_list.assert_any_call(
+			"Customer",
+			filters={"name": "CUST-0001"},
+			fields=["customer_group"],
+			limit_page_length=1,
+		)
 		mock_has_permission.assert_called_once_with("Customer", "read", doc="CUST-0001")
 
 	@patch("frappe.get_list", return_value=[])
