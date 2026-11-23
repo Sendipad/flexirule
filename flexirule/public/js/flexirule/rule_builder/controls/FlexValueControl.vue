@@ -123,6 +123,7 @@ import {
 	resolveStaticPresentation,
 } from "./static_presentation_policy.mjs";
 import { parseListElements } from "./flexvalue_serialization.mjs";
+import { resolveResolverOutputFieldtype } from "./resolver_output_fieldtype.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
 import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
@@ -203,15 +204,21 @@ const sourceCatalogue = computed(() => {
 	});
 });
 
-function resolveResolverOutputType(family, operation) {
+function resolveResolverOutputType(family, operation, config = {}) {
 	const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
-	if (Array.isArray(resolverSpecs)) {
-		const spec = resolverSpecs.find(
-			(entry) => entry.family === family && entry.operation === operation
-		);
-		if (spec?.output_type) return spec.output_type;
-	}
-	return fieldType.value || "Data";
+	const spec = Array.isArray(resolverSpecs)
+		? resolverSpecs.find((entry) => entry.family === family && entry.operation === operation)
+		: null;
+	const resolvedType = resolveResolverOutputFieldtype(
+		family,
+		operation,
+		config,
+		spec,
+		resolverSpecs
+	);
+	if (resolvedType) return resolvedType;
+	if (spec?.output_type_is_dynamic) return "";
+	return spec?.output_type || fieldType.value || "Data";
 }
 
 // Static Mode Helpers
@@ -628,7 +635,8 @@ const editor = new Editor({
 										operation: props.operation,
 										value_type: resolveResolverOutputType(
 											props.family,
-											props.operation
+											props.operation,
+											props.payload?.config || {}
 										),
 										config: props.payload?.config || {},
 										label: props.primaryLabel,
@@ -705,7 +713,8 @@ const editor = new Editor({
 									operation: props.operation,
 									value_type: resolveResolverOutputType(
 										props.family,
-										props.operation
+										props.operation,
+										props.payload?.config || {}
 									),
 									config: props.payload?.config || {},
 									label: props.primaryLabel,
@@ -834,7 +843,7 @@ function coerceStructuredValue(val) {
 				mode: "resolver",
 				family: fam || "text",
 				operation: op || "combine",
-				value_type: val.value_type || currentFieldType,
+				...(val.value_type ? { value_type: val.value_type } : {}),
 				config: config.config && typeof config.config === "object" ? config.config : config,
 			};
 		}
@@ -891,7 +900,7 @@ function coerceStructuredValue(val) {
 				mode: "resolver",
 				family: family || "text",
 				operation: operation || "combine",
-				value_type: val.value_type || currentFieldType,
+				...(val.value_type ? { value_type: val.value_type } : {}),
 				config,
 			};
 		}
@@ -970,7 +979,7 @@ function serialize() {
 				mode: "resolver",
 				family,
 				operation,
-				value_type: node.attrs.value_type || currentFieldType,
+				...(node.attrs.value_type ? { value_type: node.attrs.value_type } : {}),
 				config: innerConfig,
 			};
 		}
@@ -1012,7 +1021,7 @@ function serialize() {
 					mode: "resolver",
 					family: fam,
 					operation: op,
-					value_type: item.attrs.value_type || currentFieldType,
+					...(item.attrs.value_type ? { value_type: item.attrs.value_type } : {}),
 					config: innerCfg,
 				},
 			};
