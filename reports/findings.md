@@ -7,7 +7,8 @@
 | **FR-SEC-001** | **CRITICAL** | Security | `flexirule/ruleflow/core/permissions.py:186` | AST validation stub in `validate_safe_eval` allows Python sandbox escape via dunder attributes | **Fixed** | High |
 | **FR-SEC-002** | **CRITICAL** | Security | `flexirule/ruleflow/core/action_handlers/document_action.py:642` | Unsanitized Jinja template rendering (`_render_scalar`) permits Server-Side Template Injection (SSTI) | **Fixed** | High |
 | **FR-SEC-003** | **HIGH** | Security | `flexirule/ruleflow/core/engine.py:165` | `SafeFrappeAPI.format_value` accepts unvalidated `df` dict, bypassing read-only restrictions | **Fixed** | High |
-| **FR-SEC-004** | **HIGH** | Security | `flexirule/ruleflow/core/permissions.py:136` | Background worker execution defaults to Administrator session user, bypassing `ignore_permissions` role gate | Documented | High |
+| **FR-SCHED-001** | **INFO** | CI/Automation | `.github/workflows/jules-task.yml` | Daily scheduled Jules audit workflow cron configuration (`0 2 * * *`) targeting develop | **Fixed** | High |
+| **FR-SEC-004** | **HIGH** | Security | `flexirule/ruleflow/core/permissions.py:174` | Background worker execution defaults to Administrator session user, bypassing `ignore_permissions` role gate | Documented | High |
 | **FR-DATA-001** | **HIGH** | Data Integrity | `flexirule/ruleflow/core/engine.py:530` | Savepoint rollback failure swallows database error and leaves partial mutations committed | **Fixed** | High |
 | **FR-ENGINE-001** | **HIGH** | Rule Engine | `flexirule/ruleflow/core/action_plan_cache.py:53` | Wildcard Redis key pattern deletion fails in Redis clusters, leaving stale action plans active | **Fixed** | High |
 | **FR-ENGINE-002** | **HIGH** | Rule Engine | `flexirule/ruleflow/core/action_handlers/sub_rule.py:85` | Sub-rule execution does not propagate depth counter, leading to unenforced recursion limits and stack overflow | **Fixed** | High |
